@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MasterData\BarangController;
 use App\Http\Controllers\MasterData\KategoriController;
 use App\Http\Controllers\MasterData\MerkController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
@@ -48,6 +49,7 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
     Route::prefix('master-data')->group(function () {
         Route::resource('kategori', KategoriController::class)->except(['create', 'show']);
         Route::resource('merk', MerkController::class)->except(['create', 'show']);
+        Route::resource('barang', BarangController::class)->except(['create', 'show']);
     });
 
     Route::prefix('pengaturan')->group(function () {
