@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MasterData\KategoriController;
+use App\Http\Controllers\MasterData\MerkController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Http\Controllers\Pengaturan\PenggunaController;
 use App\Http\Controllers\Pengaturan\RoleUserController;
@@ -42,6 +44,11 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
     ]))->name('dashboard.index');
 
     Route::get('form-elements', fn () => Inertia::render('Admin/FormElements'))->name('form-elements.index');
+
+    Route::prefix('master-data')->group(function () {
+        Route::resource('kategori', KategoriController::class)->except(['create', 'show']);
+        Route::resource('merk', MerkController::class)->except(['create', 'show']);
+    });
 
     Route::prefix('pengaturan')->group(function () {
         Route::resource('pengguna', PenggunaController::class)->except(['create', 'show']);
