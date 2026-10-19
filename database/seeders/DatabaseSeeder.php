@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             MenuSeeder::class,
             RoleUserSeeder::class,
+            RekeningSeeder::class,
         ]);
 
         foreach ($this->akun as $akun) {
