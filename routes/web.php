@@ -11,6 +11,7 @@ use App\Http\Controllers\MasterData\RekeningController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Http\Controllers\Pengaturan\PenggunaController;
 use App\Http\Controllers\Pengaturan\RoleUserController;
+use App\Http\Controllers\Transaksi\SewaController;
 use App\Http\Middleware\CheckMenuPermission;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -56,6 +57,11 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
         Route::resource('barang', BarangController::class)->except(['create', 'show']);
         Route::resource('customer', CustomerController::class)->except(['create', 'show']);
         Route::resource('rekening', RekeningController::class)->except(['create', 'show']);
+    });
+
+    Route::prefix('transaksi')->group(function () {
+        Route::resource('sewa', SewaController::class)->except(['create', 'show']);
+        Route::get('sewa/{sewa}/struk', [SewaController::class, 'struk'])->name('sewa.struk');
     });
 
     Route::prefix('inventori')->group(function () {
