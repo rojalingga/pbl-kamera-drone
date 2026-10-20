@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Inventori\PengadaanBarangController;
+use App\Http\Controllers\Inventori\RiwayatStokController;
 use App\Http\Controllers\MasterData\BarangController;
 use App\Http\Controllers\MasterData\CustomerController;
 use App\Http\Controllers\MasterData\KategoriController;
@@ -54,6 +56,12 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
         Route::resource('barang', BarangController::class)->except(['create', 'show']);
         Route::resource('customer', CustomerController::class)->except(['create', 'show']);
         Route::resource('rekening', RekeningController::class)->except(['create', 'show']);
+    });
+
+    Route::prefix('inventori')->group(function () {
+        Route::get('riwayat-stok/data', [RiwayatStokController::class, 'data'])->name('riwayat-stok.data');
+        Route::resource('riwayat-stok', RiwayatStokController::class)->only(['index']);
+        Route::resource('pengadaan-barang', PengadaanBarangController::class)->except(['create', 'show']);
     });
 
     Route::prefix('pengaturan')->group(function () {

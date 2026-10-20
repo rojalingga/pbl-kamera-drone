@@ -8,6 +8,7 @@ use App\Models\Barang;
 use App\Models\FotoBarang;
 use App\Models\Kategori;
 use App\Models\Merk;
+use App\Services\RiwayatStokService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class BarangController extends Controller
 {
+    public function __construct(private RiwayatStokService $stok) {}
 
     public function index(Request $request)
     {
@@ -216,6 +218,7 @@ class BarangController extends Controller
                 $foto->delete();
             }
 
+            $this->stok->hapusRiwayat($data->id);
             $data->delete();
 
             DB::commit();
