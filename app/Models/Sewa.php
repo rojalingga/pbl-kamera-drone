@@ -44,11 +44,16 @@ class Sewa extends Model
     /**
      * Status siklus sewa dihitung realtime, tidak disimpan di database.
      *
-     * Urutan prioritas: sudah lewat tanggal -> sudah bayar -> pending.
-     * Pengecekan pengembalian ditambahkan bersama modul pengembalian.
+     * Urutan prioritas: ada pengembalian -> sudah lewat tanggal -> sudah bayar -> pending.
      */
     public function getStatusSewaAttribute(): string
     {
+        $sudahDikembalikan = $this->pengembalian_exists ?? $this->pengembalians()->exists();
+
+        if ($sudahDikembalikan) {
+            return self::SEWA_PENGEMBALIAN;
+        }
+
         if ($this->status_pembayaran !== self::BAYAR_CONFIRMED) {
             return self::SEWA_PENDING;
         }
