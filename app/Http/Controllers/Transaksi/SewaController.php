@@ -7,9 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Models\Barang;
 use App\Models\Customer;
+use App\Models\Pemasukan;
+use App\Models\Pembayaran;
 use App\Models\Sewa;
 use App\Models\SewaDetail;
 use App\Services\NomorDokumenService;
+use App\Services\RiwayatSaldoService;
 use App\Services\RiwayatStokService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,14 +26,14 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SewaController extends Controller
 {
-    public function __construct(private RiwayatStokService $stok, private NomorDokumenService $nomor) {}
+    public function __construct(private RiwayatStokService $stok, private RiwayatSaldoService $saldo, private NomorDokumenService $nomor) {}
 
     public function index(Request $request)
     {
         $permissions = HakAksesController::getUserPermissions();
 
         if (($request->has('datatable') || $request->wantsJson() || ($request->ajax() && $request->has('draw'))) && ! $request->header('X-Inertia')) {
-            $data = Sewa::with(['customer', 'user', 'details.barang'])->orderByDesc('id');
+            $data = Sewa::with(['customer', 'user', 'details.barang'])->withExists('pengembalians')->orderByDesc('id');
 
             return DataTables::of($data)->escapeColumns([])
                 ->addIndexColumn()
@@ -96,7 +99,7 @@ class SewaController extends Controller
             'details.barang.kategori',
         ])->findOrFail($id);
 
-        $pembayaran = null;
+        $pembayaran = Pembayaran::where('id_sewa', $id)->orderByDesc('id')->first();
 
         $jumlahHari = $this->jumlahHari((string) $sewa->tgl_sewa, (string) $sewa->tgl_akhir_sewa);
 
@@ -224,6 +227,20 @@ class SewaController extends Controller
                 $detail->delete();
             }
 
+            $pemasukanTerkait = Pemasukan::where('id_sewa', $sewa->id)->get();
+
+            foreach ($pemasukanTerkait as $pemasukan) {
+                $idRekeningHapus = (int) ($pemasukan->id_rekening ?? 0);
+                $nominalHapus = (int) ($pemasukan->nominal ?? 0);
+                $idPemasukanHapus = (int) $pemasukan->id;
+                $pemasukan->delete();
+
+                if ($idRekeningHapus > 0 && $nominalHapus > 0) {
+                    $this->saldo->batalkanMasuk($idRekeningHapus, $nominalHapus, ['id_pemasukan' => $idPemasukanHapus]);
+                }
+            }
+
+            Pembayaran::where('id_sewa', $sewa->id)->delete();
             $sewa->delete();
 
             DB::commit();

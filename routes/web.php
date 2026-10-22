@@ -11,6 +11,7 @@ use App\Http\Controllers\MasterData\RekeningController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Http\Controllers\Pengaturan\PenggunaController;
 use App\Http\Controllers\Pengaturan\RoleUserController;
+use App\Http\Controllers\Transaksi\PembayaranController;
 use App\Http\Controllers\Transaksi\PembelianUnitController;
 use App\Http\Controllers\Transaksi\PengembalianController;
 use App\Http\Controllers\Transaksi\PerawatanController;
@@ -65,6 +66,12 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
     Route::prefix('transaksi')->group(function () {
         Route::resource('sewa', SewaController::class)->except(['create', 'show']);
         Route::get('sewa/{sewa}/struk', [SewaController::class, 'struk'])->name('sewa.struk');
+        Route::get('sewa/{sewa}/pembayaran', [PembayaranController::class, 'show'])->name('pembayaran.show');
+        Route::post('sewa/{sewa}/pembayaran', [PembayaranController::class, 'store'])->name('pembayaran.store');
+        Route::post('pembayaran/{pembayaran}/confirm', [PembayaranController::class, 'confirm'])->name('pembayaran.confirm');
+        Route::post('pembayaran/{pembayaran}/simulate', [PembayaranController::class, 'simulate'])->name('pembayaran.simulate');
+        Route::get('pengembalian/{pengembalian}/pembayaran', [PembayaranController::class, 'showDenda'])->name('pembayaran.showDenda');
+        Route::post('pengembalian/{pengembalian}/pembayaran', [PembayaranController::class, 'storeDenda'])->name('pembayaran.storeDenda');
         Route::resource('pengembalian', PengembalianController::class)->except(['create', 'show']);
         Route::resource('perawatan', PerawatanController::class)->except(['create', 'show']);
         Route::patch('perawatan-detail/{id}/status', [PerawatanController::class, 'updateStatusDetail'])->name('perawatan-detail.status');
@@ -91,5 +98,7 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
 
     Route::post('logout', [AuthController::class, 'logout'])->name('admin.logout');
 });
+
+Route::post('midtrans/webhook', [PembayaranController::class, 'webhook'])->name('pembayaran.webhook');
 
 Route::fallback(fn () => abort(404));
