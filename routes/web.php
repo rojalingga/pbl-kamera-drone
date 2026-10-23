@@ -3,6 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Inventori\PengadaanBarangController;
 use App\Http\Controllers\Inventori\RiwayatStokController;
+use App\Http\Controllers\Keuangan\PemasukanController;
+use App\Http\Controllers\Keuangan\PengeluaranController;
+use App\Http\Controllers\Keuangan\PiutangController;
 use App\Http\Controllers\MasterData\BarangController;
 use App\Http\Controllers\MasterData\CustomerController;
 use App\Http\Controllers\MasterData\KategoriController;
@@ -76,6 +79,12 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
         Route::resource('perawatan', PerawatanController::class)->except(['create', 'show']);
         Route::patch('perawatan-detail/{id}/status', [PerawatanController::class, 'updateStatusDetail'])->name('perawatan-detail.status');
         Route::resource('pembelian-unit', PembelianUnitController::class)->except(['create', 'show']);
+    });
+
+    Route::prefix('keuangan')->group(function () {
+        Route::resource('pemasukan', PemasukanController::class)->except(['create', 'show']);
+        Route::resource('pengeluaran', PengeluaranController::class)->except(['create', 'show']);
+        Route::resource('piutang', PiutangController::class)->except(['create', 'show']);
     });
 
     Route::prefix('inventori')->group(function () {
