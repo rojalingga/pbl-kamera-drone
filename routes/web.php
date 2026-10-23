@@ -6,6 +6,7 @@ use App\Http\Controllers\Inventori\RiwayatStokController;
 use App\Http\Controllers\Keuangan\PemasukanController;
 use App\Http\Controllers\Keuangan\PengeluaranController;
 use App\Http\Controllers\Keuangan\PiutangController;
+use App\Http\Controllers\Laporan\LaporanSewaController;
 use App\Http\Controllers\MasterData\BarangController;
 use App\Http\Controllers\MasterData\CustomerController;
 use App\Http\Controllers\MasterData\KategoriController;
@@ -91,6 +92,13 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
         Route::get('riwayat-stok/data', [RiwayatStokController::class, 'data'])->name('riwayat-stok.data');
         Route::resource('riwayat-stok', RiwayatStokController::class)->only(['index']);
         Route::resource('pengadaan-barang', PengadaanBarangController::class)->except(['create', 'show']);
+    });
+
+    Route::prefix('laporan')->group(function () {
+        Route::get('sewa', [LaporanSewaController::class, 'index'])->name('laporan-sewa.index');
+        Route::get('sewa/data', [LaporanSewaController::class, 'data'])->name('laporan-sewa.data');
+        Route::get('sewa/export-excel', [LaporanSewaController::class, 'cetakExcel'])->name('laporan-sewa.exportExcel');
+        Route::get('sewa/export-pdf', [LaporanSewaController::class, 'cetakPdf'])->name('laporan-sewa.exportPdf');
     });
 
     Route::prefix('pengaturan')->group(function () {

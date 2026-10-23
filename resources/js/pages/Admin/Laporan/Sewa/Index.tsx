@@ -1,0 +1,405 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { Head } from "@inertiajs/react";
+import axios from "axios";
+import Swal from "sweetalert2";
+import AppLayout from "@/layout/AppLayout";
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import DatePicker from "@/components/form/date-picker";
+import Select from "@/components/form/Select";
+import TablePagination from "@/components/common/TablePagination";
+import Rupiah from "@/components/common/Rupiah";
+import { Permissions } from "@/types";
+import { cn } from "@/utils";
+import {
+  SearchIcon,
+  DownloadIcon,
+} from "@/icons";
+
+interface CustomerItem {
+  id: number;
+  nama_lengkap: string;
+}
+
+const STATUS_SEWA_PENDING = "Pending";
+const STATUS_SEWA_PROSES = "Proses Sewa";
+const STATUS_SEWA_PENGEMBALIAN = "Pengembalian";
+
+const getStatusSewaBadge = (status: string | null) => {
+  const nilai = status || STATUS_SEWA_PENDING;
+  let gaya =
+    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+
+  if (nilai === STATUS_SEWA_PENDING) {
+    gaya = "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400";
+  } else if (nilai === STATUS_SEWA_PROSES) {
+    gaya = "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
+  } else if (nilai === STATUS_SEWA_PENGEMBALIAN) {
+    gaya = "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
+  } else if (nilai.startsWith("Terlambat")) {
+    gaya = "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
+        gaya
+      )}
+    >
+      {nilai}
+    </span>
+  );
+};
+
+interface SewaReportRow {
+  id: number;
+  DT_RowIndex?: number;
+  tanggal: string | null;
+  customer: string;
+  periode: string;
+  jumlah_item: number | string;
+  total_biaya: string;
+  status: string;
+}
+
+interface IndexProps {
+  permissions: Permissions;
+  customers: CustomerItem[];
+}
+
+export default function LaporanSewaIndex({ permissions, customers }: IndexProps) {
+  const [data, setData] = useState<SewaReportRow[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [search, setSearch] = useState<string>("");
+  const [perPage, setPerPage] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const [tanggalAwal, setTanggalAwal] = useState<string>("");
+  const [tanggalAkhir, setTanggalAkhir] = useState<string>("");
+  const [idCustomer, setIdCustomer] = useState<string>("");
+  const [filterError, setFilterError] = useState<string>("");
+
+  const customerOptions = (customers ?? []).map((row) => ({
+    value: String(row.id),
+    label: row.nama_lengkap,
+  }));
+
+  const fetchReport = useCallback(async () => {
+    setLoading(true);
+    setFilterError("");
+
+    try {
+      const params: Record<string, string> = {};
+      if (tanggalAwal) params.tanggal_awal = tanggalAwal;
+      if (tanggalAkhir) params.tanggal_akhir = tanggalAkhir;
+      if (idCustomer) params.id_customer = idCustomer;
+
+      const response = await axios.get("/admin/laporan/sewa/data", {
+        params,
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      if (response.data && response.data.data) {
+        setData(response.data.data);
+      }
+    } catch (err: any) {
+      if (err.response && err.response.status === 422) {
+        setFilterError(
+          err.response.data?.errors?.tanggal_akhir?.[0] ||
+            err.response.data?.message ||
+            "Filter tanggal tidak valid."
+        );
+      } else {
+        console.error("Gagal memuat laporan sewa:", err);
+        Swal.fire({
+          icon: "error",
+          title: "Gagal!",
+          text: "Terjadi kesalahan saat memuat laporan sewa.",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [tanggalAwal, tanggalAkhir, idCustomer]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
+
+  const resetFilter = () => {
+    setTanggalAwal("");
+    setTanggalAkhir("");
+    setIdCustomer("");
+    setSearch("");
+    setCurrentPage(1);
+  };
+
+
+  const exportParams = () => {
+    const params = new URLSearchParams();
+    if (tanggalAwal) params.append("tanggal_awal", tanggalAwal);
+    if (tanggalAkhir) params.append("tanggal_akhir", tanggalAkhir);
+    if (idCustomer) params.append("id_customer", idCustomer);
+    return params.toString();
+  };
+
+  const cetakExcel = () => {
+    const query = exportParams();
+    window.open(`/admin/laporan/sewa/export-excel${query ? `?${query}` : ""}`, "_blank");
+  };
+
+  const cetakPdf = () => {
+    const query = exportParams();
+    window.open(`/admin/laporan/sewa/export-pdf${query ? `?${query}` : ""}`, "_blank");
+  };
+
+  const filteredData = data.filter((item) => {
+    const keyword = search.toLowerCase();
+    return (
+      (item.customer ?? "").toLowerCase().includes(keyword) ||
+      (item.periode ?? "").toLowerCase().includes(keyword) ||
+      (item.status ?? "").toLowerCase().includes(keyword) ||
+      (item.tanggal ?? "").toLowerCase().includes(keyword)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredData.length / perPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * perPage,
+    currentPage * perPage
+  );
+  return (
+    <AppLayout>
+      <Head title="Laporan Sewa - Admin" />
+      <PageBreadcrumb parent="Laporan" pageTitle="Laporan Sewa" />
+
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
+
+        <div className="border-b border-gray-200 p-5 sm:p-6 dark:border-gray-800">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+            Laporan Penyewaan
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Filter data sewa berdasarkan periode tanggal dan customer.
+          </p>
+        </div>
+
+        <div className="border-b border-gray-200 p-5 sm:p-6 dark:border-gray-800">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="tanggal_awal"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Tanggal Awal
+              </label>
+              <DatePicker
+                id="tanggal_awal"
+                placeholder="Pilih tanggal"
+                defaultDate={tanggalAwal || undefined}
+                onChange={(_dates: Date[], dateStr: string) => {
+                  setTanggalAwal(dateStr);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="tanggal_akhir"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Tanggal Akhir
+              </label>
+              <DatePicker
+                id="tanggal_akhir"
+                placeholder="Pilih tanggal"
+                defaultDate={tanggalAkhir || undefined}
+                onChange={(_dates: Date[], dateStr: string) => {
+                  setTanggalAkhir(dateStr);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="id_customer"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Customer
+              </label>
+              <Select
+                id="id_customer"
+                options={customerOptions}
+                placeholder="- Semua customer -"
+                value={idCustomer}
+                onChange={(val) => {
+                  setIdCustomer(val);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                &nbsp;
+              </label>
+              <button
+                type="button"
+                onClick={resetFilter}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+              >
+                Reset Filter
+              </button>
+            </div>
+          </div>
+
+          {filterError && (
+            <p className="mt-3 text-xs text-red-500">{filterError}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Tampilkan
+            </span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-10 rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              data
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={cetakExcel}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-green-700 transition-colors"
+              >
+                <DownloadIcon className="size-4" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={cetakPdf}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-red-700 transition-colors"
+              >
+                <DownloadIcon className="size-4" />
+                <span>PDF</span>
+              </button>
+            </div>
+            <div className="relative w-full sm:w-72">
+            <input
+              type="text"
+              placeholder="Cari customer, periode, status..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-10 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 ps-10 pe-4 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500"
+            />
+            <SearchIcon className="absolute inset-s-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+          </div>
+          </div>
+        </div>
+
+        <div className="max-w-full overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="border-y border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-600 dark:border-gray-800 dark:bg-gray-800/50 dark:text-gray-400">
+              <tr>
+                <th className="px-6 py-4 w-16 text-center">No</th>
+                <th className="px-6 py-4">Tanggal</th>
+                <th className="px-6 py-4">Customer</th>
+                <th className="px-6 py-4">Periode</th>
+                <th className="px-6 py-4 text-center">Item</th>
+                <th className="px-6 py-4 text-right">Total Biaya</th>
+                <th className="px-6 py-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 text-sm dark:divide-gray-800">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="size-7 animate-spin rounded-full border-3 border-brand-500 border-t-transparent"></div>
+                      <span className="text-xs">Memuat laporan...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedData.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
+                  >
+                    {search || tanggalAwal || tanggalAkhir || idCustomer
+                      ? "Tidak ada data sewa pada filter yang dipilih."
+                      : "Belum ada data sewa."}
+                  </td>
+                </tr>
+              ) : (
+                paginatedData.map((item, index) => {
+                  const itemIndex = (currentPage - 1) * perPage + index + 1;
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-50/80 dark:hover:bg-white/3 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-center font-medium text-gray-600 dark:text-gray-400">
+                        {itemIndex}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {item.tanggal}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white/90">
+                        {item.customer ?? "-"}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {item.periode ?? "-"}
+                      </td>
+                      <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
+                        {item.jumlah_item ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-right font-semibold text-gray-800 dark:text-white/90">
+                        <Rupiah value={item.total_biaya ?? "0"} />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {getStatusSewaBadge(item.status)}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredData.length}
+          perPage={perPage}
+          setCurrentPage={setCurrentPage}
+        />
+      </div>
+    </AppLayout>
+  );
+}

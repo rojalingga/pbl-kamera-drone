@@ -12,7 +12,7 @@
         "laravel/tinker": "^3.0",
         "midtrans/midtrans-php": "^2.6",
         "phpoffice/phpspreadsheet": "^5.10",
-        "tecnickcom/tcpdf": "^7.0",
+        "tecnickcom/tcpdf": "^6.8",
         "yajra/laravel-datatables-oracle": "^13.3"
     },
     "require-dev": {
