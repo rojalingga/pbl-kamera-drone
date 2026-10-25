@@ -6,6 +6,8 @@ use App\Http\Controllers\Inventori\RiwayatStokController;
 use App\Http\Controllers\Keuangan\PemasukanController;
 use App\Http\Controllers\Keuangan\PengeluaranController;
 use App\Http\Controllers\Keuangan\PiutangController;
+use App\Http\Controllers\Laporan\LaporanKeuanganController;
+use App\Http\Controllers\Laporan\LaporanPiutangHutangController;
 use App\Http\Controllers\Laporan\LaporanSewaController;
 use App\Http\Controllers\MasterData\BarangController;
 use App\Http\Controllers\MasterData\CustomerController;
@@ -99,6 +101,16 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
         Route::get('sewa/data', [LaporanSewaController::class, 'data'])->name('laporan-sewa.data');
         Route::get('sewa/export-excel', [LaporanSewaController::class, 'cetakExcel'])->name('laporan-sewa.exportExcel');
         Route::get('sewa/export-pdf', [LaporanSewaController::class, 'cetakPdf'])->name('laporan-sewa.exportPdf');
+
+        Route::get('keuangan', [LaporanKeuanganController::class, 'index'])->name('laporan-keuangan.index');
+        Route::get('keuangan/data', [LaporanKeuanganController::class, 'data'])->name('laporan-keuangan.data');
+        Route::get('keuangan/export-excel', [LaporanKeuanganController::class, 'cetakExcel'])->name('laporan-keuangan.exportExcel');
+        Route::get('keuangan/export-pdf', [LaporanKeuanganController::class, 'cetakPdf'])->name('laporan-keuangan.exportPdf');
+
+        Route::get('piutang-hutang', [LaporanPiutangHutangController::class, 'index'])->name('laporan-piutang-hutang.index');
+        Route::get('piutang-hutang/data-piutang', [LaporanPiutangHutangController::class, 'dataPiutang'])->name('laporan-piutang-hutang.dataPiutang');
+        Route::get('piutang-hutang/export-excel', [LaporanPiutangHutangController::class, 'cetakExcel'])->name('laporan-piutang-hutang.exportExcel');
+        Route::get('piutang-hutang/export-pdf', [LaporanPiutangHutangController::class, 'cetakPdf'])->name('laporan-piutang-hutang.exportPdf');
     });
 
     Route::prefix('pengaturan')->group(function () {
