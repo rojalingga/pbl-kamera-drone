@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomerAuthController;
+use App\Http\Controllers\CustomerBookingController;
+use App\Http\Controllers\CustomerKeranjangController;
 use App\Http\Controllers\Inventori\PengadaanBarangController;
 use App\Http\Controllers\Inventori\RiwayatStokController;
 use App\Http\Controllers\Keuangan\PemasukanController;
@@ -17,6 +20,7 @@ use App\Http\Controllers\MasterData\RekeningController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Http\Controllers\Pengaturan\PenggunaController;
 use App\Http\Controllers\Pengaturan\RoleUserController;
+use App\Http\Controllers\PublicCatalogController;
 use App\Http\Controllers\Transaksi\PembayaranController;
 use App\Http\Controllers\Transaksi\PembelianUnitController;
 use App\Http\Controllers\Transaksi\PengembalianController;
@@ -26,12 +30,54 @@ use App\Http\Middleware\CheckMenuPermission;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => view('welcome'))->name('home');
+Route::get('/', [PublicCatalogController::class, 'landing'])->name('home');
+Route::get('katalog', [PublicCatalogController::class, 'index'])->name('katalog.index');
+Route::get('katalog/{id}', [PublicCatalogController::class, 'show'])->name('katalog.show');
+
+// Redirect legacy catalog URLs
+Route::get('catalog', fn () => redirect('/katalog', 301))->name('catalog.index');
+Route::get('catalog/{id}', fn (string $id) => redirect("/katalog/{$id}", 301));
+
+Route::get('tentang-kami', function () {
+    return Inertia::render('AboutUs');
+})->name('tentang-kami');
+
+// Redirect legacy about-us URL
+Route::get('about-us', fn () => redirect('/tentang-kami', 301));
+
+Route::get('alur-sewa', function () {
+    return redirect('/#alur-sewa', 301);
+})->name('alur-sewa');
+
+// Customer Authentication
+Route::post('customer/login', [CustomerAuthController::class, 'postLogin'])->name('customer.login');
+Route::post('customer/register', [CustomerAuthController::class, 'postRegister'])->name('customer.register');
+Route::post('customer/logout', [CustomerAuthController::class, 'postLogout'])->name('customer.logout');
+Route::get('customer/me', [CustomerAuthController::class, 'me'])->name('customer.me');
+
+// Customer Booking & Payments
+Route::post('booking', [CustomerBookingController::class, 'store'])->name('customer.booking.store');
+
+Route::middleware('auth:customer')->group(function () {
+    Route::get('riwayat-sewa', [CustomerBookingController::class, 'history'])->name('customer.history');
+    Route::get('customer/payment/{sewaId}', [CustomerBookingController::class, 'paymentInfo'])->name('customer.payment.info');
+    Route::post('customer/payment/{pembayaranId}/simulate', [CustomerBookingController::class, 'simulatePayment'])->name('customer.payment.simulate');
+    Route::post('customer/sewa/{sewaId}/cancel', [CustomerBookingController::class, 'cancelSewa'])->name('customer.sewa.cancel');
+
+    // Keranjang Belanja
+    Route::get('keranjang', [CustomerKeranjangController::class, 'index'])->name('customer.keranjang.index');
+    Route::post('keranjang', [CustomerKeranjangController::class, 'store'])->name('customer.keranjang.store');
+    Route::put('keranjang/{id}', [CustomerKeranjangController::class, 'update'])->name('customer.keranjang.update');
+    Route::delete('keranjang/{id}', [CustomerKeranjangController::class, 'destroy'])->name('customer.keranjang.destroy');
+    Route::get('keranjang/count', [CustomerKeranjangController::class, 'count'])->name('customer.keranjang.count');
+    Route::post('keranjang/checkout', [CustomerKeranjangController::class, 'checkout'])->name('customer.keranjang.checkout');
+});
 
 // Autentikasi admin: login username, hanya untuk tamu.
 Route::group(['middleware' => 'guest'], function () {
     Route::get('admin/login', [AuthController::class, 'getLogin'])->name('login');
     Route::post('admin/login', [AuthController::class, 'postLogin'])->name('admin.loginPost');
+    Route::get('signup', fn () => Inertia::render('Auth/SignUp'))->name('signup');
 });
 
 Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(function () {
