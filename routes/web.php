@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiCsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\CustomerBookingController;
@@ -79,6 +80,8 @@ Route::group(['middleware' => 'guest'], function () {
     Route::post('admin/login', [AuthController::class, 'postLogin'])->name('admin.loginPost');
     Route::get('signup', fn () => Inertia::render('Auth/SignUp'))->name('signup');
 });
+
+Route::post('ai-cs/chat', [AiCsController::class, 'chatPublic'])->name('ai-cs.public-chat');
 
 Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(function () {
     // Metrik dashboard masih nol sampai modul transaksi & keuangan tersedia;
@@ -172,6 +175,9 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
     });
 
     Route::post('logout', [AuthController::class, 'logout'])->name('admin.logout');
+
+    // AI Customer Service (Admin CMS)
+    Route::post('ai-cs/chat', [AiCsController::class, 'chatAdmin'])->name('ai-cs.chat');
 });
 
 Route::post('midtrans/webhook', [PembayaranController::class, 'webhook'])->name('pembayaran.webhook');
