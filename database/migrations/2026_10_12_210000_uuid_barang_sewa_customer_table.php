@@ -105,20 +105,12 @@ return new class extends Migration
         }
 
         foreach (self::PARENTS as $parent) {
-            if (! Schema::hasTable($parent)) {
-                continue;
-            }
-
             Schema::table($parent, function (Blueprint $table): void {
                 $table->string('id', 36)->nullable(false)->default(null)->change();
             });
         }
 
         foreach (self::REFERENCES as [$table, $column]) {
-            if (! Schema::hasTable($table)) {
-                continue;
-            }
-
             $nullable = self::REFERENCE_NULLABLE["{$table}.{$column}"];
 
             Schema::table($table, function (Blueprint $blueprint) use ($column, $nullable): void {

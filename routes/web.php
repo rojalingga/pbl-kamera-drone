@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\CustomerBookingController;
 use App\Http\Controllers\CustomerKeranjangController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Inventori\PengadaanBarangController;
 use App\Http\Controllers\Inventori\RiwayatStokController;
 use App\Http\Controllers\Keuangan\PemasukanController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Laporan\LaporanSewaController;
 use App\Http\Controllers\MasterData\BarangController;
 use App\Http\Controllers\MasterData\CustomerController;
 use App\Http\Controllers\MasterData\KategoriController;
+use App\Http\Controllers\MasterData\KategoriTransaksiController;
 use App\Http\Controllers\MasterData\MerkController;
 use App\Http\Controllers\MasterData\RekeningController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
@@ -74,7 +76,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('keranjang/checkout', [CustomerKeranjangController::class, 'checkout'])->name('customer.keranjang.checkout');
 });
 
-// Autentikasi admin: login username, hanya untuk tamu.
+// Admin Auth
 Route::group(['middleware' => 'guest'], function () {
     Route::get('admin/login', [AuthController::class, 'getLogin'])->name('login');
     Route::post('admin/login', [AuthController::class, 'postLogin'])->name('admin.loginPost');
@@ -84,30 +86,8 @@ Route::group(['middleware' => 'guest'], function () {
 Route::post('ai-cs/chat', [AiCsController::class, 'chatPublic'])->name('ai-cs.public-chat');
 
 Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(function () {
-    // Metrik dashboard masih nol sampai modul transaksi & keuangan tersedia;
-    // halaman tetap dibuka supaya sidebar dan hak akses bisa diverifikasi.
-    Route::get('dashboard', fn () => Inertia::render('Admin/Dashboard', [
-        'stats' => [
-            'total_pendapatan' => 0,
-            'total_pengeluaran' => 0,
-            'laba_bersih' => 0,
-            'sewa_aktif' => 0,
-            'sewa_bulan_ini' => 0,
-            'sewa_web_count' => 0,
-            'sewa_admin_count' => 0,
-            'total_barang' => 0,
-            'stok_kritis' => 0,
-            'unit_dalam_perawatan' => 0,
-            'piutang_belum' => 0,
-        ],
-        'chartKeuangan' => ['categories' => [], 'pemasukan' => [], 'pengeluaran' => [], 'laba' => []],
-        'chartKategori' => ['labels' => [], 'series' => []],
-        'chartAsalPesanan' => ['labels' => [], 'series' => []],
-        'sewaTerbaru' => [],
-        'topBarang' => [],
-        'jatuhTempo' => [],
-    ]))->name('dashboard.index');
-
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    Route::get('dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
     Route::get('form-elements', fn () => Inertia::render('Admin/FormElements'))->name('form-elements.index');
 
     Route::prefix('master-data')->group(function () {
@@ -115,6 +95,7 @@ Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(
         Route::resource('merk', MerkController::class)->except(['create', 'show']);
         Route::resource('barang', BarangController::class)->except(['create', 'show']);
         Route::resource('customer', CustomerController::class)->except(['create', 'show']);
+        Route::resource('kategori-transaksi', KategoriTransaksiController::class)->except(['create', 'show']);
         Route::resource('rekening', RekeningController::class)->except(['create', 'show']);
     });
 

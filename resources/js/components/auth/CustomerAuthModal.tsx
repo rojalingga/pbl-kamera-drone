@@ -3,6 +3,10 @@ import axios from 'axios';
 import { router } from '@inertiajs/react';
 import { X, Eye, EyeOff, Lock, Phone, User, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 
+const POLA_NO_HP = /^08[1-9][0-9]{7,10}$/;
+const PESAN_NO_HP_TIDAK_VALID =
+  'Format nomor WhatsApp / HP tidak valid. Harus diawali 08, contoh: 081234567890.';
+
 export interface CustomerAuthModalProps {
   isOpen: boolean;
   initialMode?: 'login' | 'signup';
@@ -23,7 +27,8 @@ export default function CustomerAuthModal({
   // Form Login
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
+  const [loginGeneralError, setLoginGeneralError] = useState<string | null>(null);
 
   // Form Signup
   const [signUpName, setSignUpName] = useState('');
@@ -36,7 +41,8 @@ export default function CustomerAuthModal({
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
-      setLoginError(null);
+      setLoginErrors({});
+      setLoginGeneralError(null);
       setSignUpErrors({});
       setSignUpSuccessMessage(null);
     }
@@ -56,14 +62,21 @@ export default function CustomerAuthModal({
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError(null);
+    setLoginErrors({});
+    setLoginGeneralError(null);
 
+    const errs: Record<string, string> = {};
     if (!loginPhone.trim()) {
-      setLoginError('Nomor WhatsApp / HP wajib diisi.');
-      return;
+      errs.no_hp = 'Nomor WhatsApp / HP wajib diisi.';
+    } else if (!POLA_NO_HP.test(loginPhone.trim())) {
+      errs.no_hp = PESAN_NO_HP_TIDAK_VALID;
     }
     if (!loginPassword) {
-      setLoginError('Password wajib diisi.');
+      errs.password = 'Password wajib diisi.';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setLoginErrors(errs);
       return;
     }
 
@@ -83,11 +96,19 @@ export default function CustomerAuthModal({
         });
       }
     } catch (err: any) {
-      const msg =
-        err.response?.data?.errors?.no_hp?.[0] ||
-        err.response?.data?.message ||
-        'Gagal masuk. Periksa kembali nomor dan password Anda.';
-      setLoginError(msg);
+      const serverErrors = err.response?.data?.errors;
+
+      if (serverErrors) {
+        const formatted: Record<string, string> = {};
+        for (const [key, msgs] of Object.entries(serverErrors as Record<string, string[]>)) {
+          formatted[key] = msgs[0];
+        }
+        setLoginErrors(formatted);
+      } else {
+        setLoginGeneralError(
+          err.response?.data?.message || 'Gagal masuk. Silakan coba kembali.',
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +122,7 @@ export default function CustomerAuthModal({
     const errs: Record<string, string> = {};
     if (!signUpName.trim()) errs.nama_lengkap = 'Nama lengkap wajib diisi.';
     if (!signUpPhone.trim()) errs.no_hp = 'Nomor WhatsApp / HP wajib diisi.';
+    else if (!POLA_NO_HP.test(signUpPhone.trim())) errs.no_hp = PESAN_NO_HP_TIDAK_VALID;
     if (!signUpPassword) errs.password = 'Password wajib diisi.';
     else if (signUpPassword.length < 6) errs.password = 'Password minimal 6 karakter.';
     if (!signUpConfirmPassword) errs.password_confirmation = 'Konfirmasi password wajib diisi.';
@@ -187,7 +209,8 @@ export default function CustomerAuthModal({
             type="button"
             onClick={() => {
               setMode('login');
-              setLoginError(null);
+              setLoginErrors({});
+              setLoginGeneralError(null);
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all duration-300 ${
               mode === 'login'
@@ -216,10 +239,10 @@ export default function CustomerAuthModal({
         {/* LOGIN FORM */}
         {mode === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
-            {loginError && (
+            {loginGeneralError && (
               <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-                <p>{loginError}</p>
+                <p>{loginGeneralError}</p>
               </div>
             )}
 
@@ -233,11 +256,19 @@ export default function CustomerAuthModal({
                   type="tel"
                   placeholder="Contoh: 081234567890"
                   value={loginPhone}
-                  onChange={(e) => setLoginPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-black/15 bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
+                  onChange={(e) => {
+                    setLoginPhone(e.target.value);
+                    setLoginErrors((prev) => ({ ...prev, no_hp: '' }));
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
+                    loginErrors.no_hp ? 'border-red-400 bg-red-50/20' : 'border-black/15'
+                  }`}
                   autoComplete="tel"
                 />
               </div>
+              {loginErrors.no_hp && (
+                <p className="text-[11px] text-red-500 mt-1">{loginErrors.no_hp}</p>
+              )}
             </div>
 
             <div>
@@ -250,8 +281,13 @@ export default function CustomerAuthModal({
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Masukkan password Anda"
                   value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-black/15 bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
+                  onChange={(e) => {
+                    setLoginPassword(e.target.value);
+                    setLoginErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  className={`w-full pl-10 pr-11 py-2.5 rounded-xl border bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
+                    loginErrors.password ? 'border-red-400 bg-red-50/20' : 'border-black/15'
+                  }`}
                   autoComplete="current-password"
                 />
                 <button
@@ -262,6 +298,9 @@ export default function CustomerAuthModal({
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {loginErrors.password && (
+                <p className="text-[11px] text-red-500 mt-1">{loginErrors.password}</p>
+              )}
             </div>
 
             <button
@@ -301,7 +340,10 @@ export default function CustomerAuthModal({
                   type="text"
                   placeholder="Contoh: Rian Pratama"
                   value={signUpName}
-                  onChange={(e) => setSignUpName(e.target.value)}
+                  onChange={(e) => {
+                    setSignUpName(e.target.value);
+                    setSignUpErrors((prev) => ({ ...prev, nama_lengkap: '' }));
+                  }}
                   className={`w-full pl-10 pr-4 py-2.5 rounded-xl border bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
                     signUpErrors.nama_lengkap ? 'border-red-400 bg-red-50/20' : 'border-black/15'
                   }`}
@@ -322,7 +364,10 @@ export default function CustomerAuthModal({
                   type="tel"
                   placeholder="Contoh: 081234567890"
                   value={signUpPhone}
-                  onChange={(e) => setSignUpPhone(e.target.value)}
+                  onChange={(e) => {
+                    setSignUpPhone(e.target.value);
+                    setSignUpErrors((prev) => ({ ...prev, no_hp: '' }));
+                  }}
                   className={`w-full pl-10 pr-4 py-2.5 rounded-xl border bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
                     signUpErrors.no_hp ? 'border-red-400 bg-red-50/20' : 'border-black/15'
                   }`}
@@ -343,7 +388,10 @@ export default function CustomerAuthModal({
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Minimal 6 karakter"
                   value={signUpPassword}
-                  onChange={(e) => setSignUpPassword(e.target.value)}
+                  onChange={(e) => {
+                    setSignUpPassword(e.target.value);
+                    setSignUpErrors((prev) => ({ ...prev, password: '' }));
+                  }}
                   className={`w-full pl-10 pr-11 py-2.5 rounded-xl border bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
                     signUpErrors.password ? 'border-red-400 bg-red-50/20' : 'border-black/15'
                   }`}
@@ -371,7 +419,10 @@ export default function CustomerAuthModal({
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Ulangi password"
                   value={signUpConfirmPassword}
-                  onChange={(e) => setSignUpConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setSignUpConfirmPassword(e.target.value);
+                    setSignUpErrors((prev) => ({ ...prev, password_confirmation: '' }));
+                  }}
                   className={`w-full pl-10 pr-11 py-2.5 rounded-xl border bg-white text-sm text-black placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
                     signUpErrors.password_confirmation ? 'border-red-400 bg-red-50/20' : 'border-black/15'
                   }`}

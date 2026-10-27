@@ -10,7 +10,6 @@ use App\Models\Merk;
 use App\Models\Pembayaran;
 use App\Models\Sewa;
 use App\Models\SewaDetail;
-use App\Services\MidtransService;
 use App\Services\RiwayatStokService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -91,8 +90,6 @@ class CustomerKeranjangDanExpiredTest extends TestCase
 
     public function test_customer_dapat_checkout_keranjang_menghasilkan_sewa_asal_web_dan_potong_stok(): void
     {
-        $this->mockMidtransQris();
-
         $item = Keranjang::create([
             'id_customer' => $this->customer->id,
             'id_barang' => $this->barang->id,
@@ -232,29 +229,5 @@ class CustomerKeranjangDanExpiredTest extends TestCase
             ->assertJson(['status' => 'error']);
 
         $this->assertDatabaseHas('sewa', ['id' => $sewa->id]);
-    }
-
-    /**
-     * Stub respons QRIS Midtrans agar pengujian tidak memanggil API eksternal.
-     */
-    private function mockMidtransQris(): void
-    {
-        $this->mock(MidtransService::class, function ($mock) {
-            $mock->shouldReceive('generateOrderId')->andReturn('SEWA-TEST-002');
-            $mock->shouldReceive('createQrisPayment')->andReturn([
-                'transaction_id' => 'trx-test-002',
-                'transaction_status' => 'pending',
-                'transaction_time' => now()->toDateTimeString(),
-                'expiry_time' => now()->addHour()->toDateTimeString(),
-                'gross_amount' => '1000000.00',
-                'currency' => 'IDR',
-                'actions' => [
-                    ['name' => 'generate-qr-code-v2', 'url' => 'https://example.test/qr'],
-                ],
-                'qr_string' => 'QRIS-TEST-002',
-            ]);
-            $mock->shouldReceive('ambilQrUrl')->andReturn('https://example.test/qr');
-            $mock->shouldReceive('ambilQrString')->andReturn('QRIS-TEST-002');
-        });
     }
 }

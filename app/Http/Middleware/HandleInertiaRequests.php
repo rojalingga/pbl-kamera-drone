@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Keranjang;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -52,7 +51,7 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user('customer')->id,
                     'nama_lengkap' => $request->user('customer')->nama_lengkap,
                     'no_hp' => $request->user('customer')->no_hp,
-                    'cart_count' => Keranjang::where('id_customer', $request->user('customer')->id)->count(),
+                    'cart_count' => \App\Models\Keranjang::where('id_customer', $request->user('customer')->id)->count(),
                 ] : null,
                 'menus' => session('getmenus', []),
             ],

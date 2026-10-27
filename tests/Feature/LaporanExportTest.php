@@ -4,7 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Barang;
 use App\Models\Customer;
-use App\Models\Sewa;
+use App\Models\KategoriTransaksi;
+use App\Models\Piutang;
 use App\Models\User;
 use Database\Seeders\RekeningSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,47 +51,41 @@ class LaporanExportTest extends TestCase
         $this->assertStringStartsWith('%PDF', $pdf->getContent());
     }
 
-    public function test_laporan_sewa_data_mengembalikan_json_dan_filter(): void
+    public function test_laporan_keuangan_export_excel_dan_pdf_mengikuti_filter(): void
     {
-        $customer = Customer::create(['nama_lengkap' => 'Budi', 'no_hp' => '081234567890']);
-        $barang = Barang::create([
-            'nama_barang' => 'Drone DJI',
-            'stok' => 10,
-            'harga_sewa' => 50000,
-        ]);
+        $kategori = KategoriTransaksi::create(['kategori' => 'Sewa', 'jenis' => 'Pemasukan']);
 
-        $this->actingAs($this->user)
-            ->postJson(route('sewa.store'), [
-                'tgl_sewa' => '2026-09-27',
-                'tgl_akhir_sewa' => '2026-09-30',
-                'id_customer' => $customer->id,
-                'items' => [
-                    ['id_barang' => $barang->id, 'harga_sewa_satuan' => 50000, 'qty' => 2],
-                ],
-            ])
-            ->assertOk();
+        $this->actingAs($this->user)->post('/admin/keuangan/pemasukan', [
+            'tgl_pemasukan' => '2026-09-30',
+            'nominal' => 200000,
+            'id_kategori_transaksi' => $kategori->id,
+            'id_rekening' => 1,
+        ])->assertOk();
 
-        $response = $this->actingAs($this->user)
-            ->get('/admin/laporan/sewa/data');
+        $excel = $this->actingAs($this->user)->get('/admin/laporan/keuangan/export-excel?id_rekening=1');
+        $excel->assertOk();
+        $this->assertSame('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $excel->headers->get('Content-Type'));
 
-        $response->assertOk()
-            ->assertJsonStructure(['draw', 'recordsTotal', 'recordsFiltered', 'data']);
+        $kosong = $this->actingAs($this->user)->get('/admin/laporan/keuangan/export-excel?id_rekening=3');
+        $kosong->assertOk();
 
-        $this->assertSame('Budi', $response->json('data.0.customer'));
-        $this->assertSame(Sewa::SEWA_PENDING, $response->json('data.0.status'));
-        $this->assertSame('300.000', $response->json('data.0.total_biaya'));
-
-        $this->actingAs($this->user)
-            ->get('/admin/laporan/sewa/data?tanggal_awal=2026-10-01&tanggal_akhir=2026-10-31')
-            ->assertOk()
-            ->assertJson(['recordsFiltered' => 0]);
+        $pdf = $this->actingAs($this->user)->get('/admin/laporan/keuangan/export-pdf?id_rekening=1');
+        $pdf->assertOk();
+        $this->assertSame('application/pdf', $pdf->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
     }
 
-    public function test_laporan_sewa_data_menolak_rentang_tanggal(): void
+    public function test_laporan_piutang_export_excel_dan_pdf(): void
     {
-        $this->actingAs($this->user)
-            ->getJson('/admin/laporan/sewa/data?tanggal_awal=2026-10-05&tanggal_akhir=2026-10-01')
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['tanggal_akhir']);
+        Piutang::create(['tgl_piutang' => '2026-09-01', 'nominal' => 200000, 'terbayar' => 0]);
+
+        $excel = $this->actingAs($this->user)->get('/admin/laporan/piutang-hutang/export-excel');
+        $excel->assertOk();
+        $this->assertSame('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $excel->headers->get('Content-Type'));
+
+        $pdf = $this->actingAs($this->user)->get('/admin/laporan/piutang-hutang/export-pdf?status=belum');
+        $pdf->assertOk();
+        $this->assertSame('application/pdf', $pdf->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
     }
 }

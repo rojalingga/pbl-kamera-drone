@@ -12,22 +12,35 @@ class CustomerAuthController extends Controller
 {
     public function postLogin(Request $request): JsonResponse
     {
+        $request->merge(['no_hp' => Customer::normalisasiNoHp($request->input('no_hp'))]);
+
         $request->validate([
-            'no_hp' => 'required|string',
-            'password' => 'required|string',
+            'no_hp' => ['required', 'string', 'regex:'.Customer::POLA_NO_HP],
+            'password' => ['required', 'string'],
         ], [
             'no_hp.required' => 'Nomor WhatsApp / HP wajib diisi.',
+            'no_hp.regex' => 'Format nomor WhatsApp / HP tidak valid. Harus diawali 08, contoh: 081234567890.',
             'password.required' => 'Password wajib diisi.',
         ]);
 
-        $noHp = trim((string) $request->no_hp);
+        $noHp = (string) $request->no_hp;
+
+        if (! Customer::where('no_hp', $noHp)->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor WhatsApp / HP tidak terdaftar.',
+                'errors' => [
+                    'no_hp' => ['Nomor WhatsApp / HP tidak terdaftar.'],
+                ],
+            ], 422);
+        }
 
         if (! Auth::guard('customer')->attempt(['no_hp' => $noHp, 'password' => (string) $request->password], false)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Nomor WhatsApp / HP atau password tidak sesuai.',
+                'message' => 'Password salah.',
                 'errors' => [
-                    'no_hp' => ['Nomor WhatsApp / HP atau password salah.'],
+                    'password' => ['Password salah.'],
                 ],
             ], 422);
         }
@@ -50,15 +63,18 @@ class CustomerAuthController extends Controller
 
     public function postRegister(Request $request): JsonResponse
     {
+        $request->merge(['no_hp' => Customer::normalisasiNoHp($request->input('no_hp'))]);
+
         $request->validate([
-            'nama_lengkap' => 'required|string|max:150',
-            'no_hp' => 'required|string|max:20|unique:customer,no_hp',
-            'password' => 'required|string|min:6|confirmed',
+            'nama_lengkap' => ['required', 'string', 'max:150'],
+            'no_hp' => ['required', 'string', 'max:20', 'regex:'.Customer::POLA_NO_HP, 'unique:customer,no_hp'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
         ], [
             'nama_lengkap.required' => 'Nama lengkap wajib diisi.',
             'nama_lengkap.max' => 'Nama lengkap maksimal 150 karakter.',
             'no_hp.required' => 'Nomor WhatsApp / HP wajib diisi.',
             'no_hp.max' => 'Nomor WhatsApp / HP maksimal 20 karakter.',
+            'no_hp.regex' => 'Format nomor WhatsApp / HP tidak valid. Harus diawali 08, contoh: 081234567890.',
             'no_hp.unique' => 'Nomor WhatsApp / HP sudah terdaftar. Silakan masuk.',
             'password.required' => 'Password wajib diisi.',
             'password.min' => 'Password minimal 6 karakter.',
@@ -67,7 +83,7 @@ class CustomerAuthController extends Controller
 
         $customer = Customer::create([
             'nama_lengkap' => trim((string) $request->nama_lengkap),
-            'no_hp' => trim((string) $request->no_hp),
+            'no_hp' => (string) $request->no_hp,
             'password' => (string) $request->password,
         ]);
 

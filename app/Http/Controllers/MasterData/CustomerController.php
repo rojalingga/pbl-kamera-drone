@@ -59,15 +59,18 @@ class CustomerController extends Controller
         $request->validate([
             'nama_lengkap' => 'required|string|max:150',
             'no_hp' => 'nullable|string|max:20',
+            'password' => 'required|string|min:6',
         ], [
             'nama_lengkap.required' => 'Nama lengkap wajib diisi.',
             'nama_lengkap.max' => 'Nama lengkap maksimal 150 karakter.',
             'no_hp.max' => 'No HP maksimal 20 karakter.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 6 karakter.',
         ]);
 
         DB::beginTransaction();
         try {
-            Customer::create($request->only('nama_lengkap', 'no_hp'));
+            Customer::create($request->only('nama_lengkap', 'no_hp', 'password'));
 
             DB::commit();
 
@@ -87,15 +90,23 @@ class CustomerController extends Controller
         $request->validate([
             'nama_lengkap' => 'required|string|max:150',
             'no_hp' => 'nullable|string|max:20',
+            'password' => 'nullable|string|min:6',
         ], [
             'nama_lengkap.required' => 'Nama lengkap wajib diisi.',
             'nama_lengkap.max' => 'Nama lengkap maksimal 150 karakter.',
             'no_hp.max' => 'No HP maksimal 20 karakter.',
+            'password.min' => 'Password minimal 6 karakter.',
         ]);
 
         DB::beginTransaction();
         try {
-            $data->update($request->only('nama_lengkap', 'no_hp'));
+            $payload = $request->only('nama_lengkap', 'no_hp');
+
+            if ($request->filled('password')) {
+                $payload['password'] = $request->password;
+            }
+
+            $data->update($payload);
 
             DB::commit();
 

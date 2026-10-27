@@ -45,6 +45,7 @@ export default function CustomerIndex({ permissions }: IndexProps) {
   const [primaryId, setPrimaryId] = useState<number | null>(null);
   const [namaLengkapInput, setNamaLengkapInput] = useState<string>("");
   const [noHpInput, setNoHpInput] = useState<string>("");
+  const [passwordInput, setPasswordInput] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -90,6 +91,7 @@ export default function CustomerIndex({ permissions }: IndexProps) {
     setPrimaryId(null);
     setNamaLengkapInput("");
     setNoHpInput("");
+    setPasswordInput("");
     setErrors({});
     setModalTitle("Form Tambah Customer");
     setIsModalOpen(true);
@@ -104,6 +106,7 @@ export default function CustomerIndex({ permissions }: IndexProps) {
       if (res.data && res.data.data) {
         setNamaLengkapInput(res.data.data.nama_lengkap || "");
         setNoHpInput(res.data.data.no_hp || "");
+        setPasswordInput("");
         setPrimaryId(id);
         setModalTitle("Form Edit Customer");
         setIsModalOpen(true);
@@ -121,6 +124,7 @@ export default function CustomerIndex({ permissions }: IndexProps) {
     setPrimaryId(null);
     setNamaLengkapInput("");
     setNoHpInput("");
+    setPasswordInput("");
     setErrors({});
     setIsSubmitting(false);
   };
@@ -137,10 +141,12 @@ export default function CustomerIndex({ permissions }: IndexProps) {
     const payload: {
       nama_lengkap: string;
       no_hp: string;
+      password?: string;
       _method?: string;
     } = {
       nama_lengkap: namaLengkapInput,
       no_hp: noHpInput,
+      ...(passwordInput ? { password: passwordInput } : {}),
     };
 
     if (primaryId) {
@@ -364,6 +370,28 @@ export default function CustomerIndex({ permissions }: IndexProps) {
                 }
               }}
               {...fieldErrorProps(errors, "no_hp")}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">
+              Password {primaryId ? "" : <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              placeholder={primaryId ? "Kosongkan bila tidak diganti" : "Minimal 6 karakter"}
+              value={passwordInput}
+              onChange={(e) => {
+                setPasswordInput(e.target.value);
+
+                if (errors.password) {
+                  setErrors((prev) => ({ ...prev, password: [] }));
+                }
+              }}
+              {...fieldErrorProps(errors, "password")}
             />
           </div>
 

@@ -26,4 +26,15 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-progress.md
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# File instruksi lokal (jangan di-push)
+/AGENTS.md
+/DB.md
+/PROGRESS.md

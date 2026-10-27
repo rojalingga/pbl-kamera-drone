@@ -98,6 +98,7 @@ export default function DatePicker({
     requestAnimationFrame(() => {
       if (!calendar) return;
       const calRect = calendar.getBoundingClientRect();
+      if (calRect.width === 0) return;
       if (calRect.left < safeLeft) {
         const shift = Math.ceil(safeLeft - calRect.left);
         calendar.style.transform = `translateX(${shift}px)`;
@@ -117,6 +118,7 @@ export default function DatePicker({
         ...Indonesian,
         firstDayOfWeek: 1,
       },
+      disableMobile: true,
       mode: mode || "single",
       static: isStatic,
       clickOpens: !disabled,
@@ -129,6 +131,9 @@ export default function DatePicker({
       },
       onOpen: (_selectedDates, _dateStr, instance) => {
         updatePosition(instance);
+        requestAnimationFrame(() => {
+          updatePosition(instance);
+        });
       },
       onChange: (selectedDates, dateStr, instance) => {
         if (Array.isArray(onChangeRef.current)) {
@@ -173,6 +178,18 @@ export default function DatePicker({
     }
   }, [minDate]);
 
+  const handleIconClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (disabled || !fpRef.current) return;
+    if (fpRef.current.isOpen) {
+      fpRef.current.close();
+    } else {
+      fpRef.current.open();
+      inputRef.current?.focus();
+    }
+  };
+
   return (
     <div>
       {label && <Label htmlFor={id}>{label}</Label>}
@@ -190,9 +207,19 @@ export default function DatePicker({
           )}
         />
 
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={disabled}
+          onClick={handleIconClick}
+          aria-label="Buka kalender"
+          className={cn(
+            "absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+            disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+          )}
+        >
           <CalenderIcon className="size-6" />
-        </span>
+        </button>
       </div>
     </div>
   );

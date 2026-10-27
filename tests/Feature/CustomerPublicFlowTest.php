@@ -7,7 +7,6 @@ use App\Models\Customer;
 use App\Models\Kategori;
 use App\Models\Merk;
 use App\Models\Sewa;
-use App\Services\MidtransService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -80,8 +79,6 @@ class CustomerPublicFlowTest extends TestCase
             'no_hp' => '081299998888',
             'password' => 'password123',
         ]);
-
-        $this->mockMidtransQris();
 
         $today = Carbon::today()->toDateString();
         $tomorrow = Carbon::today()->addDays(2)->toDateString();
@@ -166,29 +163,5 @@ class CustomerPublicFlowTest extends TestCase
     {
         $response = $this->get('/riwayat-sewa');
         $response->assertRedirect('/');
-    }
-
-    /**
-     * Stub respons QRIS Midtrans agar pengujian tidak memanggil API eksternal.
-     */
-    private function mockMidtransQris(): void
-    {
-        $this->mock(MidtransService::class, function ($mock) {
-            $mock->shouldReceive('generateOrderId')->andReturn('SEWA-TEST-001');
-            $mock->shouldReceive('createQrisPayment')->andReturn([
-                'transaction_id' => 'trx-test-001',
-                'transaction_status' => 'pending',
-                'transaction_time' => now()->toDateTimeString(),
-                'expiry_time' => now()->addHour()->toDateTimeString(),
-                'gross_amount' => '1400000.00',
-                'currency' => 'IDR',
-                'actions' => [
-                    ['name' => 'generate-qr-code-v2', 'url' => 'https://example.test/qr'],
-                ],
-                'qr_string' => 'QRIS-TEST-001',
-            ]);
-            $mock->shouldReceive('ambilQrUrl')->andReturn('https://example.test/qr');
-            $mock->shouldReceive('ambilQrString')->andReturn('QRIS-TEST-001');
-        });
     }
 }
