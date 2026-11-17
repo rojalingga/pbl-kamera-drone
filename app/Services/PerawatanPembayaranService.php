@@ -6,6 +6,7 @@ use App\Models\KategoriTransaksi;
 use App\Models\Pengeluaran;
 use App\Models\Perawatan;
 use App\Models\Rekening;
+use Illuminate\Support\Carbon;
 
 class PerawatanPembayaranService
 {
@@ -43,7 +44,7 @@ class PerawatanPembayaranService
             throw new \InvalidArgumentException('Metode pembayaran tidak valid.');
         }
 
-        $tglPengeluaran = $tanggal ?: now()->toDateString();
+        $tglPengeluaran = $tanggal ? Carbon::parse($tanggal)->toDateString() : now()->toDateString();
         $noKwitansi = $perawatan->no_kwitansi ?: $this->nomor->noNotaPerawatan($tglPengeluaran);
         $rekening = Rekening::find($idRekening);
 

@@ -223,7 +223,19 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
 
             if (response.data && response.data.data) {
                 const item = response.data.data;
-                setTglInput(item.tgl_perawatan ?? hariIni());
+                const rawDate = item.tgl_perawatan
+                    ? String(item.tgl_perawatan).slice(0, 10)
+                    : hariIni();
+                setTglInput(rawDate);
+
+                if (item.pengeluarans && item.pengeluarans.length > 0) {
+                    setMetodeBayar(
+                        item.pengeluarans[0].id_rekening === 3
+                            ? "transfer"
+                            : "cash",
+                    );
+                }
+
                 const rows: DetailRow[] =
                     item.details && item.details.length > 0
                         ? item.details.map((row: DetailRow) => ({
@@ -279,7 +291,7 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
             metode_pembayaran: string;
             _method?: string;
         } = {
-            tgl_perawatan: tglInput,
+            tgl_perawatan: tglInput ? tglInput.slice(0, 10) : hariIni(),
             metode_pembayaran: metodeBayar,
             details: details.map((row) => ({
                 id_barang: row.id_barang,

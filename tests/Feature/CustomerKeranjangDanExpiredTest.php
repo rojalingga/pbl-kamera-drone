@@ -100,6 +100,8 @@ class CustomerKeranjangDanExpiredTest extends TestCase
 
         $response = $this->actingAs($this->customer, 'customer')
             ->postJson(route('customer.keranjang.checkout'), [
+                'tgl_sewa' => now()->toDateString(),
+                'tgl_akhir_sewa' => now()->addDays(2)->toDateString(),
                 'items' => [
                     [
                         'id' => $item->id,

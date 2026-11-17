@@ -59,7 +59,7 @@ class PerawatanController extends Controller
 
     public function edit($id)
     {
-        $data = Perawatan::with('details.barang')->findOrFail($id);
+        $data = Perawatan::with('details.barang', 'pengeluarans')->findOrFail($id);
 
         return response()->json(['status' => 'success', 'data' => $data]);
     }
@@ -68,10 +68,12 @@ class PerawatanController extends Controller
     {
         $this->validasi($request);
 
+        $tglPerawatan = Carbon::parse($request->tgl_perawatan)->toDateString();
+
         DB::beginTransaction();
         try {
             $perawatan = Perawatan::create([
-                'tgl_perawatan' => $request->tgl_perawatan,
+                'tgl_perawatan' => $tglPerawatan,
                 'id_user' => $request->id_user ?: auth()->id(),
                 'total_biaya_perawatan' => $this->totalBiaya($request->details),
                 'status_pembayaran' => Perawatan::BAYAR_BELUM_LUNAS,
@@ -104,6 +106,8 @@ class PerawatanController extends Controller
 
         $this->validasi($request);
 
+        $tglPerawatan = Carbon::parse($request->tgl_perawatan)->toDateString();
+
         DB::beginTransaction();
         try {
             $this->batalkanSeluruhStok($perawatan);
@@ -115,7 +119,7 @@ class PerawatanController extends Controller
             }
 
             $perawatan->update([
-                'tgl_perawatan' => $request->tgl_perawatan,
+                'tgl_perawatan' => $tglPerawatan,
                 'id_user' => $request->id_user ?: $perawatan->id_user,
                 'total_biaya_perawatan' => $this->totalBiaya($request->details),
             ]);
@@ -227,7 +231,8 @@ class PerawatanController extends Controller
             return;
         }
 
-        $this->pembayaran->bayar($perawatan, (string) $request->metode_pembayaran, $request->tgl_perawatan);
+        $tanggal = Carbon::parse($request->tgl_perawatan)->toDateString();
+        $this->pembayaran->bayar($perawatan, (string) $request->metode_pembayaran, $tanggal);
     }
 
     /**

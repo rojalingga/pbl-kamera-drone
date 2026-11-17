@@ -21,7 +21,7 @@ class Perawatan extends Model
     ];
 
     protected $casts = [
-        'tgl_perawatan' => 'date',
+        'tgl_perawatan' => 'date:Y-m-d',
         'total_biaya_perawatan' => 'integer',
     ];
 

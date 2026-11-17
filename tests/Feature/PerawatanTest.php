@@ -161,6 +161,30 @@ class PerawatanTest extends TestCase
         $this->assertSame(800000, (int) Rekening::find(3)->saldo);
     }
 
+    public function test_update_perawatan_dengan_format_tanggal_iso_tetap_berhasil(): void
+    {
+        $perawatan = $this->buatPerawatan();
+
+        $this->actingAs($this->user)->postJson("/admin/transaksi/perawatan/{$perawatan->id}", [
+            'tgl_perawatan' => '2026-10-27T00:00:00.000000Z',
+            'metode_pembayaran' => 'cash',
+            'details' => [
+                [
+                    'id_barang' => $this->barang->id,
+                    'qty' => 1,
+                    'biaya_perawatan' => 250000,
+                    'status' => PerawatanDetail::STATUS_PERAWATAN,
+                    'keterangan' => 'Ganti sparepart',
+                ],
+            ],
+            '_method' => 'PUT',
+        ])->assertOk();
+
+        $pengeluaran = Pengeluaran::where('id_perawatan', $perawatan->id)->firstOrFail();
+        $this->assertSame('2026-10-27', $pengeluaran->tgl_pengeluaran);
+        $this->assertSame(250000, (int) $pengeluaran->nominal);
+    }
+
     public function test_hapus_perawatan_mengembalikan_stok(): void
     {
         $perawatan = $this->buatPerawatan();

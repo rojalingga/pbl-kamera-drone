@@ -100,6 +100,7 @@ class SetMenuSession
     private static function row(Menu $menu): array
     {
         return [
+            'id' => $menu->id,
             'title' => $menu->title,
             'route_name' => $menu->route_name,
             'icon' => $menu->icon,

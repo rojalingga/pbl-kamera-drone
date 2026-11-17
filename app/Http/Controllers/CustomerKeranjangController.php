@@ -219,14 +219,17 @@ class CustomerKeranjangController extends Controller
         }
 
         if ($request->filled('tgl_sewa') && $request->filled('tgl_akhir_sewa') && is_array($request->items)) {
-            $mergedItems = $request->items;
-            foreach ($mergedItems as &$it) {
-                if (empty($it['tgl_sewa'])) {
-                    $it['tgl_sewa'] = $request->tgl_sewa;
+            $mergedItems = [];
+            foreach ($request->items as $it) {
+                if (is_array($it)) {
+                    if (empty($it['tgl_sewa'])) {
+                        $it['tgl_sewa'] = $request->tgl_sewa;
+                    }
+                    if (empty($it['tgl_akhir_sewa'])) {
+                        $it['tgl_akhir_sewa'] = $request->tgl_akhir_sewa;
+                    }
                 }
-                if (empty($it['tgl_akhir_sewa'])) {
-                    $it['tgl_akhir_sewa'] = $request->tgl_akhir_sewa;
-                }
+                $mergedItems[] = $it;
             }
             $request->merge(['items' => $mergedItems]);
         }

@@ -28,6 +28,7 @@ type NavItem = {
 };
 
 type SidebarMenuChild = {
+  id?: number;
   title: string;
   route_name: string;
   icon: string;
@@ -36,6 +37,7 @@ type SidebarMenuChild = {
 };
 
 type SidebarMenu = {
+  id?: number;
   title: string;
   route_name: string;
   icon: string;
@@ -89,8 +91,15 @@ const AppSidebar: React.FC = () => {
           .filter((child) => Boolean(child.url))
           .map((child) => ({ name: child.title, path: child.url as string }));
 
+        const menuKey =
+          menu.id !== undefined
+            ? `menu-${menu.id}`
+            : menu.route_name && menu.route_name !== "#"
+              ? String(menu.route_name)
+              : `menu-${menu.title}`;
+
         return {
-          key: String(menu.route_name),
+          key: menuKey,
           name: menu.title,
           icon: menuIcons[menu.title] ?? defaultIcon,
           path: menu.url ?? undefined,
@@ -288,7 +297,7 @@ const AppSidebar: React.FC = () => {
                         <ul className="ms-9 mt-2 space-y-1">
                           {nav.subItems.map((subItem) => (
                             <li
-                              key={subItem.name}
+                              key={subItem.path || subItem.name}
                               className="relative before:absolute before:-left-3 before:-top-2 before:bottom-0 before:border-l-2 before:border-dashed before:border-gray-400/60 before:content-[''] last:before:bottom-[10%] dark:before:border-gray-600/60"
                             >
                               <Link
