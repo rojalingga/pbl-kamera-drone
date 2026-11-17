@@ -385,4 +385,31 @@ class PerawatanTest extends TestCase
         $this->assertNull($perawatan->alasan_penolakan);
         $this->assertSame(1, Pengeluaran::where('id_perawatan', $perawatan->id)->count());
     }
+
+    public function test_perawatan_disetujui_gagal_jika_saldo_rekening_tidak_cukup(): void
+    {
+        // Kas Kantor saldo awalnya 1.000.000, ubah jadi 50.000
+        Rekening::where('id', 1)->update(['saldo' => 50000]);
+
+        // Biaya perawatan 100.000
+        $response = $this->actingAs($this->user)->postJson('/admin/transaksi/perawatan', [
+            'tgl_perawatan' => '2026-10-15',
+            'metode_pembayaran' => 'cash',
+            'is_owner_acc' => Perawatan::STATUS_DISETUJUI,
+            'details' => [
+                [
+                    'id_barang' => $this->barang->id,
+                    'qty' => 1,
+                    'biaya_perawatan' => 100000,
+                    'status' => PerawatanDetail::STATUS_PERAWATAN,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJson(['status' => 'error', 'error' => 'Saldo rekening Kas Kantor tidak cukup!']);
+
+        $this->assertSame(0, Perawatan::count());
+        $this->assertSame(50000, (int) Rekening::where('id', 1)->value('saldo'));
+    }
 }

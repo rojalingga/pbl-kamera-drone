@@ -127,4 +127,21 @@ class SaldoKeuanganTest extends TestCase
         $this->assertSame(10000, (int) $riwayat[0]->nominal);
         $this->assertSame(90000, (int) $riwayat[0]->saldo);
     }
+
+    public function test_pengeluaran_gagal_jika_saldo_rekening_tidak_mencukupi(): void
+    {
+        $kategori = KategoriTransaksi::create(['kategori' => 'Operasional', 'jenis' => 'Pengeluaran']);
+
+        // Saldo rekening 100.000, pengeluaran 200.000
+        $this->actingAs($this->user)->postJson(route('pengeluaran.store'), [
+            'tgl_pengeluaran' => '2026-09-30',
+            'nominal' => 200000,
+            'id_kategori_transaksi' => $kategori->id,
+            'id_rekening' => $this->rekening->id,
+        ])->assertStatus(422)
+            ->assertJson(['status' => 'error', 'error' => 'Saldo rekening Kas tidak cukup!']);
+
+        // Pastikan saldo rekening tetap tidak berkurang
+        $this->assertSame(100000, (int) $this->rekening->fresh()->saldo);
+    }
 }

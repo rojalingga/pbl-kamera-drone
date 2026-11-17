@@ -761,8 +761,8 @@ class GeminiService
             $query->whereDate('tanggal', '<=', $tanggalAkhir);
         }
 
-        $totalMasuk = (float) (clone $query)->where('jenis', 'masuk')->sum('nominal');
-        $totalKeluar = (float) (clone $query)->where('jenis', 'keluar')->sum('nominal');
+        $totalMasuk = (float) (clone $query)->where('jenis', RiwayatSaldoService::MASUK)->sum('nominal');
+        $totalKeluar = (float) (clone $query)->where('jenis', RiwayatSaldoService::KELUAR)->sum('nominal');
         $labaOperasional = $totalMasuk - $totalKeluar;
 
         $rekenings = Rekening::all(['nama_rek', 'no_rek', 'pemilik_rek', 'saldo']);
@@ -842,7 +842,7 @@ class GeminiService
         }
 
         if ($jenis && in_array(strtolower($jenis), ['masuk', 'keluar'])) {
-            $query->where('jenis', strtolower($jenis));
+            $query->where('jenis', ucfirst(strtolower($jenis)));
         }
 
         $riwayats = $query->limit(min(30, max(1, $limit)))->get();
@@ -958,8 +958,12 @@ class GeminiService
         $today = now()->locale('id')->isoFormat('dddd, D MMMM Y');
 
         if ($scope === 'admin') {
-            return <<<'PROMPT'
+            return <<<PROMPT
 Kamu adalah asisten internal untuk Admin CMS "Rental Kamera & Drone".
+
+KONTEKS WAKTU:
+- Tanggal dan waktu saat ini: {$today} (Waktu Indonesia Barat / WIB).
+- Gunakan tanggal ini sebagai acuan saat pengguna menyebut "hari ini", "bulan ini", "minggu ini", atau referensi waktu relatif lainnya.
 
 GAYA KOMUNIKASI (WAJIB DIPATUHI):
 - Sopan, profesional, luwes, dan natural (humanize, jangan kaku atau robotik).
@@ -982,8 +986,11 @@ ATURAN MENJAWAB:
 PROMPT;
         }
 
-        return <<<'PROMPT'
+        return <<<PROMPT
 Kamu adalah asisten customer service untuk "Rental Kamera & Drone".
+
+KONTEKS WAKTU:
+- Tanggal saat ini: {$today}.
 
 GAYA KOMUNIKASI (WAJIB DIPATUHI):
 - Sopan, ramah, hangat, dan profesional (humanize, luwes, bersahabat, tidak kaku).

@@ -20,6 +20,7 @@ import { handleFormError } from "@/utils/form-error";
 import { formatInteger } from "@/utils/format";
 import { notifyError, notifySuccess } from "@/utils/toast";
 import {
+  EyeIcon,
   PencilIcon,
   PlusIcon,
   TrashBinIcon,
@@ -70,6 +71,7 @@ export default function PemasukanIndex({
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isDetailMode, setIsDetailMode] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [modalTitle, setModalTitle] = useState<string>("Tambah Pemasukan");
   const [primaryId, setPrimaryId] = useState<number | null>(null);
@@ -153,12 +155,14 @@ export default function PemasukanIndex({
   const handleOpenAddModal = () => {
     setPrimaryId(null);
     resetForm();
+    setIsDetailMode(false);
     setModalTitle("Form Tambah Pemasukan");
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = async (id: number) => {
     resetForm();
+    setIsDetailMode(false);
     setEditingId(id);
 
     try {
@@ -185,6 +189,42 @@ export default function PemasukanIndex({
     } finally {
       setEditingId(null);
     }
+  };
+
+  const handleOpenDetailModal = async (id: number) => {
+    resetForm();
+    setIsDetailMode(true);
+    setEditingId(id);
+
+    try {
+      const res = await axios.get(`/admin/keuangan/pemasukan/${id}/edit`);
+      if (res.data && res.data.data) {
+        const row = res.data.data;
+        setTglInput(row.tgl_pemasukan ?? "");
+        setNominalInput(row.nominal != null && String(row.nominal) !== "" ? formatInteger(row.nominal) : "");
+        setKategoriInput(
+          row.id_kategori_transaksi !== null
+            ? String(row.id_kategori_transaksi)
+            : ""
+        );
+        setRekeningInput(row.id_rekening != null ? String(row.id_rekening) : "");
+        setKeteranganInput(row.keterangan ?? "");
+        setLampiranLama(row.lampiran ?? null);
+        setPrimaryId(id);
+        setModalTitle("Detail Pemasukan");
+        setIsModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Gagal mengambil detail pemasukan:", err);
+      notifyError("Gagal mengambil data pemasukan!");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  const isAutoTransaksi = (item: PemasukanRow) => {
+    const kat = (item.kategori ?? "").toLowerCase();
+    return kat === "sewa" || kat === "pembayaran denda";
   };
 
   const handleCloseModal = () => {
@@ -358,35 +398,55 @@ export default function PemasukanIndex({
                       {showActionColumn && (
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            {permissions?.edit === 1 && (
+                            {isAutoTransaksi(item) ? (
                               <button
-                                onClick={() => handleOpenEditModal(item.id)}
+                                type="button"
+                                onClick={() => handleOpenDetailModal(item.id)}
                                 disabled={editingId === item.id}
-                                title="Edit Pemasukan"
-                                className="flex size-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20 disabled:opacity-50 disabled:cursor-wait transition-colors"
+                                title="Detail Pemasukan"
+                                className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-wait transition-colors"
                               >
                                 {editingId === item.id ? (
-                                  <div className="size-4 animate-spin rounded-full border-2 border-brand-600 border-t-transparent"></div>
+                                  <div className="size-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
                                 ) : (
-                                  <PencilIcon className="size-4" />
+                                  <EyeIcon className="size-4" />
                                 )}
                               </button>
-                            )}
-                            {permissions?.hapus === 1 && (
-                              <button
-                                onClick={() =>
-                                  handleDelete(
-                                    item.id,
-                                    `${item.tgl_pemasukan} - ${
-                                      item.kategori ?? "-"
-                                    }`
-                                  )
-                                }
-                                title="Hapus Pemasukan"
-                                className="flex size-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 transition-colors"
-                              >
-                                <TrashBinIcon className="size-4" />
-                              </button>
+                            ) : (
+                              <>
+                                {permissions?.edit === 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditModal(item.id)}
+                                    disabled={editingId === item.id}
+                                    title="Edit Pemasukan"
+                                    className="flex size-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20 disabled:opacity-50 disabled:cursor-wait transition-colors"
+                                  >
+                                    {editingId === item.id ? (
+                                      <div className="size-4 animate-spin rounded-full border-2 border-brand-600 border-t-transparent"></div>
+                                    ) : (
+                                      <PencilIcon className="size-4" />
+                                    )}
+                                  </button>
+                                )}
+                                {permissions?.hapus === 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleDelete(
+                                        item.id,
+                                        `${item.tgl_pemasukan} - ${
+                                          item.kategori ?? "-"
+                                        }`
+                                      )
+                                    }
+                                    title="Hapus Pemasukan"
+                                    className="flex size-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 transition-colors"
+                                  >
+                                    <TrashBinIcon className="size-4" />
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
@@ -434,6 +494,7 @@ export default function PemasukanIndex({
                 <DatePicker
                   id="tgl_pemasukan"
                   placeholder="Pilih tanggal"
+                  disabled={isDetailMode}
                   defaultDate={tglInput || undefined}
                   onChange={(_dates: Date[], dateStr: string) => {
                     setTglInput(dateStr);
@@ -452,6 +513,7 @@ export default function PemasukanIndex({
                 <RupiahInput
                   id="nominal"
                   value={nominalInput}
+                  disabled={isDetailMode}
                   placeholder="Contoh: 500.000"
                   onChange={(v) => {
                     setNominalInput(v);
@@ -471,6 +533,7 @@ if (errors.nominal) {
                   id="id_kategori_transaksi"
                   options={kategoriOptions}
                   placeholder="- Pilih Kategori -"
+                  disabled={isDetailMode}
                   value={kategoriInput}
                   onChange={(val) => {
                     setKategoriInput(val);
@@ -487,12 +550,13 @@ if (errors.nominal) {
 
               <div className="space-y-2">
                 <Label htmlFor="id_rekening">
-                  Rekening (Opsional)
+                  Rekening <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   id="id_rekening"
                   options={rekeningOptions}
-                  placeholder="- Tanpa rekening -"
+                  placeholder="- Pilih Rekening -"
+                  disabled={isDetailMode}
                   value={rekeningInput}
                   onChange={(val) => {
                     setRekeningInput(val);
@@ -509,6 +573,7 @@ if (errors.nominal) {
                 <TextArea
                   placeholder="Contoh: Pembayaran sewa drone"
                   rows={2}
+                  disabled={isDetailMode}
                   value={keteranganInput}
                   onChange={(val) => {
                     setKeteranganInput(val);
@@ -558,25 +623,41 @@ if (errors.nominal) {
                   )}
                 </div>
               )}
-              <input
-                id="lampiran"
-                name="lampiran"
-                type="file"
-                accept=".jpeg,.jpg,.png,.pdf"
-                onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
-                className="block w-full cursor-pointer rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-800 dark:bg-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Format: JPG, PNG, atau PDF.
-              </p>
-              <FieldError error={errors.lampiran} />
+              {!isDetailMode && (
+                <input
+                  id="lampiran"
+                  name="lampiran"
+                  type="file"
+                  accept=".jpeg,.jpg,.png,.pdf"
+                  onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+                  className="block w-full cursor-pointer rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+                />
+              )}
+              {!isDetailMode && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Format: JPG, PNG, atau PDF.
+                </p>
+              )}
+              {!isDetailMode && <FieldError error={errors.lampiran} />}
             </div>
           </div>
 
-          <ModalFooter
-            onCancel={handleCloseModal}
-            isSubmitting={isSubmitting}
-          />
+          {isDetailMode ? (
+            <div className="flex items-center justify-end border-t border-gray-200 px-6 py-4 sm:px-8 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="inline-flex items-center justify-center rounded-xl bg-gray-100 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+              >
+                Keluar
+              </button>
+            </div>
+          ) : (
+            <ModalFooter
+              onCancel={handleCloseModal}
+              isSubmitting={isSubmitting}
+            />
+          )}
         </form>
       </Modal>
     </AppLayout>

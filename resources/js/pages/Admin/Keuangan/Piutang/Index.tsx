@@ -188,7 +188,7 @@ export default function PiutangIndex({ permissions }: IndexProps) {
   const isLunas = (item: PiutangRow): boolean =>
     parseRupiah(item.terbayar) >= parseRupiah(item.nominal);
 
-  const showActionColumn = permissions?.edit === 1 || permissions?.hapus === 1;
+  const showActionColumn = permissions?.edit === 1;
   return (
     <AppLayout>
       <Head title="Keuangan Piutang - Admin" />
@@ -319,20 +319,6 @@ export default function PiutangIndex({ permissions }: IndexProps) {
                                 ) : (
                                   <PencilIcon className="size-4" />
                                 )}
-                              </button>
-                            )}
-                            {permissions?.hapus === 1 && (
-                              <button
-                                onClick={() =>
-                                  handleDelete(
-                                    item.id,
-                                    `${item.tgl_piutang} - Rp ${item.nominal}`
-                                  )
-                                }
-                                title="Hapus Piutang"
-                                className="flex size-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 transition-colors"
-                              >
-                                <TrashBinIcon className="size-4" />
                               </button>
                             )}
                           </div>

@@ -38,13 +38,6 @@ class PiutangController extends Controller
                         $btn .= '<button class="btn btn-primary btn-sm mx-1 edit-button" data-id="'.e($row->id).'" data-url="'.e(route('piutang.edit', $row->id)).'">Edit</button>';
                     }
 
-                    if ($permissions['hapus']) {
-                        $btn .= '<form action="'.e(route('piutang.destroy', $row->id)).'" method="POST" style="display:inline;">'
-                        .csrf_field().method_field('DELETE').'
-                        <button type="submit" class="delete-button btn btn-danger btn-sm mx-1">Hapus</button>
-                        </form>';
-                    }
-
                     $btn .= '</div>';
 
                     return $btn;

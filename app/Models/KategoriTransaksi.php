@@ -11,6 +11,11 @@ class KategoriTransaksi extends Model
     protected $fillable = [
         'kategori',
         'jenis',
+        'stt_fix',
+    ];
+
+    protected $casts = [
+        'stt_fix' => 'boolean',
     ];
 
     public function pemasukans()

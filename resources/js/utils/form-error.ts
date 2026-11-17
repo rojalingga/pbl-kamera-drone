@@ -1,11 +1,9 @@
 import Swal from "sweetalert2";
 import { playSound } from "./sound";
-import { notifyServerError, Toast, TOAST_ICON_HTML } from "./toast";
+import { notifyError, notifyServerError, Toast, TOAST_ICON_HTML } from "./toast";
 
 interface HandleFormErrorOptions {
-
   businessError?: boolean;
-
   includeMessage?: boolean;
 }
 
@@ -17,26 +15,21 @@ export const handleFormError = (
   const { businessError = false, includeMessage = false } = options;
 
   if (err.response && err.response.status === 422) {
-    if (
-      businessError &&
-      err.response.data?.error &&
-      !err.response.data?.errors
-    ) {
+    // Jika ada error bisnis saldo (misal dari SaldoTidakCukupException: { status: 'error', error: 'Saldo rekening ...' })
+    const saldoError = err.response.data?.error;
+    if (saldoError && !err.response.data?.errors) {
       playSound("notification");
-      Swal.fire({
-        icon: "error",
-        title: "Gagal!",
-        text: err.response.data.error,
-      });
+      notifyError(saldoError);
       return;
     }
 
+    // Untuk validasi form umum (validation errors), selalu tampilkan "Ada kesalahan input!"
     playSound("notification");
     Toast.fire({
       iconHtml: TOAST_ICON_HTML,
       title: "Ada kesalahan input!",
     });
-    setErrors(err.response.data.errors || {});
+    setErrors(err.response.data?.errors || {});
     return;
   }
 

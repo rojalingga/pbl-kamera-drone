@@ -18,21 +18,24 @@ class KategoriTransaksiSeeder extends Seeder
      * @var array<int, array{kategori: string, jenis: string}>
      */
     private array $kategori = [
-        ['kategori' => 'Sewa', 'jenis' => 'Pemasukan'],
-        ['kategori' => 'Pembayaran Denda', 'jenis' => 'Pemasukan'],
-        ['kategori' => 'Pembelian Unit', 'jenis' => 'Pengeluaran'],
-        ['kategori' => 'Perawatan', 'jenis' => 'Pengeluaran'],
-        ['kategori' => 'Operasional', 'jenis' => 'Pengeluaran'],
-        ['kategori' => 'Gaji Karyawan', 'jenis' => 'Pengeluaran'],
-        ['kategori' => 'Sewa Tempat', 'jenis' => 'Pengeluaran'],
-        ['kategori' => 'Listrik & Internet', 'jenis' => 'Pengeluaran'],
-        ['kategori' => 'Lain-lain', 'jenis' => 'Pengeluaran'],
+        ['kategori' => 'Sewa', 'jenis' => 'Pemasukan', 'stt_fix' => true],
+        ['kategori' => 'Pembayaran Denda', 'jenis' => 'Pemasukan', 'stt_fix' => true],
+        ['kategori' => 'Pembelian Unit', 'jenis' => 'Pengeluaran', 'stt_fix' => true],
+        ['kategori' => 'Perawatan', 'jenis' => 'Pengeluaran', 'stt_fix' => true],
+        ['kategori' => 'Operasional', 'jenis' => 'Pengeluaran', 'stt_fix' => false],
+        ['kategori' => 'Gaji Karyawan', 'jenis' => 'Pengeluaran', 'stt_fix' => false],
+        ['kategori' => 'Sewa Tempat', 'jenis' => 'Pengeluaran', 'stt_fix' => false],
+        ['kategori' => 'Listrik & Internet', 'jenis' => 'Pengeluaran', 'stt_fix' => false],
+        ['kategori' => 'Lain-lain', 'jenis' => 'Pengeluaran', 'stt_fix' => false],
     ];
 
     public function run(): void
     {
         foreach ($this->kategori as $row) {
-            KategoriTransaksi::firstOrCreate($row);
+            KategoriTransaksi::updateOrCreate(
+                ['kategori' => $row['kategori'], 'jenis' => $row['jenis']],
+                ['stt_fix' => $row['stt_fix']]
+            );
         }
     }
 }

@@ -26,6 +26,7 @@ interface KategoriTransaksiItem {
   DT_RowIndex?: number;
   kategori: string;
   jenis: string;
+  stt_fix?: boolean | number;
   created_at?: string;
 }
 
@@ -292,7 +293,7 @@ export default function KategoriTransaksiIndex({ permissions }: IndexProps) {
                                 )}
                               </button>
                             )}
-                            {permissions?.hapus === 1 && (
+                            {permissions?.hapus === 1 && !item.stt_fix && (
                               <button
                                 onClick={() =>
                                   handleDelete(item.id, item.kategori)

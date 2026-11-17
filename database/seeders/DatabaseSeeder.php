@@ -44,6 +44,16 @@ class DatabaseSeeder extends Seeder
         foreach ($this->akun as $akun) {
             $this->sinkronkanAkun($akun);
         }
+
+        $this->call([
+            SaldoAwalSeeder::class,
+            PengadaanBarangSeeder::class,
+            PembelianUnitSeeder::class,
+            PerawatanSeeder::class,
+            SewaSeeder::class,
+            PengembalianSeeder::class,
+            KeranjangSeeder::class,
+        ]);
     }
 
     /**

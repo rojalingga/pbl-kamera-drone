@@ -531,16 +531,9 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                                                     Disetujui
                                                 </span>
                                             ) : statusOwner === 3 ? (
-                                                <div>
-                                                    <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
-                                                        Ditolak
-                                                    </span>
-                                                    {item.alasan_penolakan && (
-                                                        <div className="text-[11px] text-red-500 mt-0.5 max-w-xs text-left">
-                                                            {item.alasan_penolakan}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
+                                                    Ditolak
+                                                </span>
                                             ) : (
                                                 <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-400">
                                                     Pending

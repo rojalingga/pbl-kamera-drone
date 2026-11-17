@@ -59,6 +59,7 @@ interface SewaRow {
   periode_sewa?: string | null;
   customer?: string;
   petugas?: string;
+  asal_pesanan?: string | null;
 }
 
 interface DetailRow {
@@ -892,7 +893,9 @@ export default function SewaIndex({
                       <td className="px-6 py-4 text-right font-medium text-gray-800 dark:text-white/90">
                         <Rupiah value={row.total_biaya} />
                       </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{row.petugas ?? "-"}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {row.asal_pesanan === "web" || row.asal_pesanan === "Web" ? "Public" : (row.petugas ?? "-")}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         {getStatusBadge(row.status_pembayaran)}
                       </td>

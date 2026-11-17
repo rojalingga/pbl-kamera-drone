@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   isOpen: boolean;
@@ -64,9 +65,8 @@ export const Modal: React.FC<ModalProps> = ({
     ? "w-full h-full"
     : "relative w-full max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col rounded-3xl bg-white dark:bg-gray-900 overflow-hidden";
 
-  return (
+  const modalNode = (
     <div className="modal fixed inset-0 z-99999 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
-
       {!isFullscreen && (
         <div
           className="fixed inset-0 h-full w-full bg-gray-900/40 backdrop-blur-sm transition-opacity duration-300"
@@ -109,4 +109,6 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalNode, document.body) : null;
 };

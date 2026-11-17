@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\KategoriTransaksi;
 use App\Models\Pemasukan;
 use App\Models\Piutang;
+use App\Models\Rekening;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -83,12 +84,19 @@ class KeuanganMenuTest extends TestCase
             'kategori' => 'Iklan',
             'jenis' => 'Pemasukan',
         ]);
+        $rekening = Rekening::create([
+            'nama_rek' => 'BCA',
+            'no_rek' => '12345678',
+            'pemilik_rek' => 'Admin',
+            'saldo' => 500000,
+        ]);
 
         $this->actingAs($this->user)
             ->postJson(route('pemasukan.store'), [
                 'tgl_pemasukan' => '2026-09-10',
                 'nominal' => 250000,
                 'id_kategori_transaksi' => $kategori->id,
+                'id_rekening' => $rekening->id,
                 'no_kwitansi' => 'KW-100',
             ])
             ->assertOk()
@@ -98,6 +106,7 @@ class KeuanganMenuTest extends TestCase
             'tgl_pemasukan' => '2026-09-10',
             'no_kwitansi' => 'KW-100',
             'id_kategori_transaksi' => $kategori->id,
+            'id_rekening' => $rekening->id,
         ]);
 
         $this->actingAs($this->user)
@@ -105,7 +114,7 @@ class KeuanganMenuTest extends TestCase
                 'nominal' => 'bukan-angka',
             ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['tgl_pemasukan', 'nominal']);
+            ->assertJsonValidationErrors(['tgl_pemasukan', 'nominal', 'id_rekening']);
     }
 
     public function test_update_piutang_ditolak_melebihi_nominal(): void

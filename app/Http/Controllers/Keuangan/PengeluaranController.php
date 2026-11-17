@@ -37,16 +37,21 @@ class PengeluaranController extends Controller
                 ->addColumn('rekening', fn ($row) => $row->rekening?->nama_rek ?? '-')
                 ->addColumn('action', function ($row) use ($permissions) {
                     $btn = '<div class="d-flex justify-content-center">';
+                    $kat = strtolower($row->kategoriTransaksi?->kategori ?? '');
 
-                    if ($permissions['edit']) {
-                        $btn .= '<button class="btn btn-primary btn-sm mx-1 edit-button" data-id="'.e($row->id).'" data-url="'.e(route('pengeluaran.edit', $row->id)).'">Edit</button>';
-                    }
+                    if ($kat === 'perawatan' || $kat === 'pembelian unit') {
+                        $btn .= '<button class="btn btn-info btn-sm mx-1 detail-button" data-id="'.e($row->id).'" data-url="'.e(route('pengeluaran.edit', $row->id)).'"><i class="fa fa-eye"></i> Detail</button>';
+                    } else {
+                        if ($permissions['edit']) {
+                            $btn .= '<button class="btn btn-primary btn-sm mx-1 edit-button" data-id="'.e($row->id).'" data-url="'.e(route('pengeluaran.edit', $row->id)).'">Edit</button>';
+                        }
 
-                    if ($permissions['hapus']) {
-                        $btn .= '<form action="'.e(route('pengeluaran.destroy', $row->id)).'" method="POST" style="display:inline;">'
-                        .csrf_field().method_field('DELETE').'
-                        <button type="submit" class="delete-button btn btn-danger btn-sm mx-1">Hapus</button>
-                        </form>';
+                        if ($permissions['hapus']) {
+                            $btn .= '<form action="'.e(route('pengeluaran.destroy', $row->id)).'" method="POST" style="display:inline;">'
+                            .csrf_field().method_field('DELETE').'
+                            <button type="submit" class="delete-button btn btn-danger btn-sm mx-1">Hapus</button>
+                            </form>';
+                        }
                     }
 
                     $btn .= '</div>';
@@ -77,21 +82,25 @@ class PengeluaranController extends Controller
             'tgl_pengeluaran' => 'required|date',
             'nominal' => 'required|numeric|min:0',
             'id_kategori_transaksi' => 'required|integer|exists:kategori_transaksi,id',
-            'id_rekening' => 'nullable|integer|exists:rekening,id',
+            'id_rekening' => 'required|integer|exists:rekening,id',
             'lampiran' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
-            'id_perawatan' => 'nullable|integer|exists:perawatan,id',
             'keterangan' => 'nullable|string',
         ], [
             'tgl_pengeluaran.required' => 'Tanggal pengeluaran wajib diisi.',
             'nominal.required' => 'Nominal wajib diisi.',
             'nominal.numeric' => 'Nominal harus berupa angka.',
             'id_kategori_transaksi.required' => 'Kategori transaksi wajib dipilih.',
+            'id_rekening.required' => 'Rekening wajib dipilih.',
             'id_rekening.exists' => 'Rekening tidak valid.',
         ]);
 
         DB::beginTransaction();
         try {
-            $db = $request->only('tgl_pengeluaran', 'nominal', 'id_kategori_transaksi', 'id_rekening', 'id_perawatan', 'keterangan');
+            if (! empty($request->id_rekening) && (int) $request->nominal > 0) {
+                $this->saldo->pastikanSaldoCukup((int) $request->id_rekening, (int) $request->nominal);
+            }
+
+            $db = $request->only('tgl_pengeluaran', 'nominal', 'id_kategori_transaksi', 'id_rekening', 'keterangan');
 
             if ($request->hasFile('lampiran')) {
                 $file = $request->file('lampiran');
@@ -129,20 +138,24 @@ class PengeluaranController extends Controller
             'tgl_pengeluaran' => 'required|date',
             'nominal' => 'required|numeric|min:0',
             'id_kategori_transaksi' => 'required|integer|exists:kategori_transaksi,id',
-            'id_rekening' => 'nullable|integer|exists:rekening,id',
+            'id_rekening' => 'required|integer|exists:rekening,id',
             'lampiran' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
-            'id_perawatan' => 'nullable|integer|exists:perawatan,id',
             'keterangan' => 'nullable|string',
         ], [
             'tgl_pengeluaran.required' => 'Tanggal pengeluaran wajib diisi.',
             'nominal.required' => 'Nominal wajib diisi.',
             'id_kategori_transaksi.required' => 'Kategori transaksi wajib dipilih.',
+            'id_rekening.required' => 'Rekening wajib dipilih.',
             'id_rekening.exists' => 'Rekening tidak valid.',
         ]);
 
         DB::beginTransaction();
         try {
-            $db = $request->only('tgl_pengeluaran', 'nominal', 'id_kategori_transaksi', 'id_rekening', 'id_perawatan', 'keterangan');
+            if (! empty($request->id_rekening) && (int) $request->nominal > 0) {
+                $this->saldo->pastikanSaldoCukup((int) $request->id_rekening, (int) $request->nominal);
+            }
+
+            $db = $request->only('tgl_pengeluaran', 'nominal', 'id_kategori_transaksi', 'id_rekening', 'keterangan');
 
             if ($request->hasFile('lampiran')) {
                 if (! empty($data->lampiran) && file_exists(public_path('assets/lampiran/'.$data->lampiran))) {
@@ -188,7 +201,14 @@ class PengeluaranController extends Controller
 
     public function destroy($id)
     {
-        $data = Pengeluaran::findOrFail($id);
+        $data = Pengeluaran::with('kategoriTransaksi')->findOrFail($id);
+        $kat = strtolower($data->kategoriTransaksi?->kategori ?? '');
+        if ($kat === 'perawatan' || $kat === 'pembelian unit') {
+            return response()->json([
+                'status' => 'error',
+                'error' => 'Pengeluaran dari transaksi otomatis '.($data->kategoriTransaksi?->kategori ?? '').' tidak dapat dihapus.',
+            ], 422);
+        }
 
         DB::beginTransaction();
         try {

@@ -36,6 +36,30 @@ class RiwayatSaldoService
         };
     }
 
+    /**
+     * Periksa apakah saldo rekening mencukupi untuk nominal pengeluaran tertentu.
+     * Melempar SaldoTidakCukupException jika saldo rekening kurang dari nominal.
+     *
+     * @throws SaldoTidakCukupException
+     */
+    public function pastikanSaldoCukup(int $idRekening, int $nominal): void
+    {
+        if ($nominal <= 0) {
+            return;
+        }
+
+        $rekening = Rekening::find($idRekening);
+
+        if (! $rekening) {
+            throw new SaldoTidakCukupException('Rekening tidak valid.');
+        }
+
+        if ((int) ($rekening->saldo ?? 0) < $nominal) {
+            $nama = $rekening->nama_rek;
+            throw new SaldoTidakCukupException($nama ? 'Saldo rekening '.$nama.' tidak cukup!' : 'Saldo rekening tidak mencukupi.');
+        }
+    }
+
     public function catat(int $idRekening, string $jenis, int $nominal, int $saldo, ?array $sumber = null, ?string $tanggal = null): RiwayatSaldo
     {
         $sumber = $sumber ?: [];
@@ -84,7 +108,8 @@ class RiwayatSaldoService
         $saldoBaru = (int) ($rekening->saldo ?? 0) - $nominal;
 
         if ($saldoBaru < 0) {
-            throw new SaldoTidakCukupException('Saldo rekening tidak mencukupi.');
+            $nama = $rekening->nama_rek;
+            throw new SaldoTidakCukupException($nama ? 'Saldo rekening '.$nama.' tidak cukup!' : 'Saldo rekening tidak mencukupi.');
         }
 
         $rekening->saldo = $saldoBaru;
@@ -108,7 +133,8 @@ class RiwayatSaldoService
         $saldoBaru = (int) ($rekening->saldo ?? 0) - $nominal;
 
         if ($saldoBaru < 0) {
-            throw new SaldoTidakCukupException('Saldo rekening tidak mencukupi.');
+            $nama = $rekening->nama_rek;
+            throw new SaldoTidakCukupException($nama ? 'Saldo rekening '.$nama.' tidak cukup!' : 'Saldo rekening tidak mencukupi.');
         }
 
         $rekening->saldo = $saldoBaru;

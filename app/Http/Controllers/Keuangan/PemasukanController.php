@@ -37,16 +37,21 @@ class PemasukanController extends Controller
                 ->addColumn('rekening', fn ($row) => $row->rekening?->nama_rek ?? '-')
                 ->addColumn('action', function ($row) use ($permissions) {
                     $btn = '<div class="d-flex justify-content-center">';
+                    $kat = strtolower($row->kategoriTransaksi?->kategori ?? '');
 
-                    if ($permissions['edit']) {
-                        $btn .= '<button class="btn btn-primary btn-sm mx-1 edit-button" data-id="'.e($row->id).'" data-url="'.e(route('pemasukan.edit', $row->id)).'">Edit</button>';
-                    }
+                    if ($kat === 'sewa' || $kat === 'pembayaran denda') {
+                        $btn .= '<button class="btn btn-info btn-sm mx-1 detail-button" data-id="'.e($row->id).'" data-url="'.e(route('pemasukan.edit', $row->id)).'"><i class="fa fa-eye"></i> Detail</button>';
+                    } else {
+                        if ($permissions['edit']) {
+                            $btn .= '<button class="btn btn-primary btn-sm mx-1 edit-button" data-id="'.e($row->id).'" data-url="'.e(route('pemasukan.edit', $row->id)).'">Edit</button>';
+                        }
 
-                    if ($permissions['hapus']) {
-                        $btn .= '<form action="'.e(route('pemasukan.destroy', $row->id)).'" method="POST" style="display:inline;">'
-                        .csrf_field().method_field('DELETE').'
-                        <button type="submit" class="delete-button btn btn-danger btn-sm mx-1">Hapus</button>
-                        </form>';
+                        if ($permissions['hapus']) {
+                            $btn .= '<form action="'.e(route('pemasukan.destroy', $row->id)).'" method="POST" style="display:inline;">'
+                            .csrf_field().method_field('DELETE').'
+                            <button type="submit" class="delete-button btn btn-danger btn-sm mx-1">Hapus</button>
+                            </form>';
+                        }
                     }
 
                     $btn .= '</div>';
@@ -76,7 +81,7 @@ class PemasukanController extends Controller
             'tgl_pemasukan' => 'required|date',
             'nominal' => 'required|numeric|min:0',
             'id_kategori_transaksi' => 'required|integer|exists:kategori_transaksi,id',
-            'id_rekening' => 'nullable|integer|exists:rekening,id',
+            'id_rekening' => 'required|integer|exists:rekening,id',
             'lampiran' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
             'no_kwitansi' => 'nullable|string|max:100',
             'keterangan' => 'nullable|string',
@@ -85,6 +90,7 @@ class PemasukanController extends Controller
             'nominal.required' => 'Nominal wajib diisi.',
             'nominal.numeric' => 'Nominal harus berupa angka.',
             'id_kategori_transaksi.required' => 'Kategori transaksi wajib dipilih.',
+            'id_rekening.required' => 'Rekening wajib dipilih.',
             'id_rekening.exists' => 'Rekening tidak valid.',
         ]);
 
@@ -132,7 +138,7 @@ class PemasukanController extends Controller
             'tgl_pemasukan' => 'required|date',
             'nominal' => 'required|numeric|min:0',
             'id_kategori_transaksi' => 'required|integer|exists:kategori_transaksi,id',
-            'id_rekening' => 'nullable|integer|exists:rekening,id',
+            'id_rekening' => 'required|integer|exists:rekening,id',
             'lampiran' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
             'no_kwitansi' => 'nullable|string|max:100',
             'keterangan' => 'nullable|string',
@@ -140,6 +146,7 @@ class PemasukanController extends Controller
             'tgl_pemasukan.required' => 'Tanggal pemasukan wajib diisi.',
             'nominal.required' => 'Nominal wajib diisi.',
             'id_kategori_transaksi.required' => 'Kategori transaksi wajib dipilih.',
+            'id_rekening.required' => 'Rekening wajib dipilih.',
             'id_rekening.exists' => 'Rekening tidak valid.',
         ]);
 
@@ -195,7 +202,14 @@ class PemasukanController extends Controller
 
     public function destroy($id)
     {
-        $data = Pemasukan::findOrFail($id);
+        $data = Pemasukan::with('kategoriTransaksi')->findOrFail($id);
+        $kat = strtolower($data->kategoriTransaksi?->kategori ?? '');
+        if ($kat === 'sewa' || $kat === 'pembayaran denda') {
+            return response()->json([
+                'status' => 'error',
+                'error' => 'Pemasukan dari transaksi otomatis '.($data->kategoriTransaksi?->kategori ?? '').' tidak dapat dihapus.',
+            ], 422);
+        }
 
         DB::beginTransaction();
         try {

@@ -29,7 +29,7 @@ class KategoriTransaksiController extends Controller
                         $btn .= '<button class="btn btn-primary btn-sm mx-1 edit-button" data-id="'.e($row->id).'" data-url="'.e(route('kategori-transaksi.edit', $row->id)).'">Edit</button>';
                     }
 
-                    if ($permissions['hapus']) {
+                    if ($permissions['hapus'] && ! $row->stt_fix) {
                         $btn .= '<form action="'.e(route('kategori-transaksi.destroy', $row->id)).'" method="POST" style="display:inline;">'
                         .csrf_field().method_field('DELETE').'
                         <button type="submit" class="delete-button btn btn-danger btn-sm mx-1">Hapus</button>
@@ -110,6 +110,13 @@ class KategoriTransaksiController extends Controller
     public function destroy($id)
     {
         $data = KategoriTransaksi::findOrFail($id);
+
+        if ($data->stt_fix) {
+            return response()->json([
+                'status' => 'error',
+                'error' => 'Kategori transaksi bawaan sistem tidak dapat dihapus.',
+            ], 422);
+        }
 
         DB::beginTransaction();
         try {

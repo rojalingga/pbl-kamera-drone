@@ -47,7 +47,7 @@ class SewaController extends Controller
 
                     return $mulai.' - '.$selesai;
                 })
-                ->addColumn('petugas', fn ($row) => $row->user?->nama_lengkap ?? '-')
+                ->addColumn('petugas', fn ($row) => $row->asal_pesanan === Sewa::ASAL_WEB ? 'Public' : ($row->user?->nama_lengkap ?? '-'))
                 ->addColumn('jumlah_item', fn ($row) => $row->details->sum('qty'))
                 ->editColumn('total_biaya', fn ($row) => number_format((float) ($row->total_biaya ?? 0), 0, ',', '.'))
                 ->addColumn('action', function ($row) use ($permissions) {
