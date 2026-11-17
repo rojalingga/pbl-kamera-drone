@@ -37,6 +37,14 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class, 'id_role');
     }
 
+    /**
+     * Cek apakah user yang sedang login berperan sebagai Owner.
+     */
+    public function isOwner(): bool
+    {
+        return $this->role?->role === 'Owner';
+    }
+
     public function hakAkses()
     {
         return $this->hasMany(HakAkses::class, 'id_user');

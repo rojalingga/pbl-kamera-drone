@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Head } from "@inertiajs/react";
+import { Head, usePage } from "@inertiajs/react";
 import axios from "axios";
 import AppLayout from "@/layout/AppLayout";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -15,7 +15,7 @@ import TableFilterToolbar from "@/components/common/TableFilterToolbar";
 import TablePagination from "@/components/common/TablePagination";
 import Rupiah from "@/components/common/Rupiah";
 import RupiahInput from "@/components/common/RupiahInput";
-import { Permissions } from "@/types";
+import { Permissions, PageProps } from "@/types";
 import { confirmDelete } from "@/utils/confirm";
 import { handleFormError } from "@/utils/form-error";
 import { formatInteger, formatRupiah, parseRupiah } from "@/utils/format";
@@ -44,6 +44,8 @@ interface PembelianRow {
   total_biaya?: string | number | null;
   barang_list?: string;
   rekening?: string;
+  is_owner_acc?: number;
+  alasan_penolakan?: string;
 }
 
 interface DetailRow {
@@ -71,6 +73,9 @@ export default function PembelianUnitIndex({
   barangs,
   rekenings,
 }: IndexProps) {
+  const { auth } = usePage<PageProps>().props;
+  const isOwner = auth?.user?.role === "Owner";
+
   const [data, setData] = useState<PembelianRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>("");
@@ -86,6 +91,8 @@ export default function PembelianUnitIndex({
   const [rekeningInput, setRekeningInput] = useState<string>("");
   const [lampiranFile, setLampiranFile] = useState<File | null>(null);
   const [lampiranLama, setLampiranLama] = useState<string | null>(null);
+  const [isOwnerAccInput, setIsOwnerAccInput] = useState<string>("1");
+  const [alasanPenolakanInput, setAlasanPenolakanInput] = useState<string>("");
   const [details, setDetails] = useState<DetailRow[]>([barisKosong(1)]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -142,6 +149,8 @@ export default function PembelianUnitIndex({
     setRekeningInput("");
     setLampiranFile(null);
     setLampiranLama(null);
+    setIsOwnerAccInput("1");
+    setAlasanPenolakanInput("");
     setDetails([barisKosong(1)]);
     setErrors({});
     setIsSubmitting(false);
@@ -171,6 +180,8 @@ export default function PembelianUnitIndex({
           item.id_rekening != null ? String(item.id_rekening) : ""
         );
         setLampiranLama(item.lampiran ?? null);
+        setIsOwnerAccInput(String(item.is_owner_acc ?? 1));
+        setAlasanPenolakanInput(item.alasan_penolakan ?? "");
         const rows: DetailRow[] =
           item.details && item.details.length > 0
             ? item.details.map((row: any, idx: number) => ({
@@ -267,6 +278,8 @@ export default function PembelianUnitIndex({
     fd.append("tanggal", tanggalInput);
     fd.append("keterangan", keteranganInput);
     fd.append("id_rekening", rekeningInput);
+    fd.append("is_owner_acc", isOwnerAccInput);
+    fd.append("alasan_penolakan", alasanPenolakanInput);
     if (lampiranFile) fd.append("lampiran", lampiranFile);
 
     details.forEach((row, index) => {
@@ -356,6 +369,7 @@ export default function PembelianUnitIndex({
                 <th className="px-6 py-4 w-16 text-center">No</th>
                 <th className="px-6 py-4">Tanggal</th>
                 <th className="px-6 py-4">Keterangan</th>
+                <th className="px-6 py-4 text-center">Status Owner</th>
                 <th className="px-6 py-4 text-center">Total Unit</th>
                 <th className="px-6 py-4 text-right">Total Biaya</th>
                 {showActionColumn && (
@@ -367,7 +381,7 @@ export default function PembelianUnitIndex({
               {loading ? (
                 <tr>
                   <td
-                    colSpan={showActionColumn ? 6 : 5}
+                    colSpan={showActionColumn ? 7 : 6}
                     className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -379,7 +393,7 @@ export default function PembelianUnitIndex({
               ) : paginatedData.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={showActionColumn ? 6 : 5}
+                    colSpan={showActionColumn ? 7 : 6}
                     className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
                   >
                     {search
@@ -390,6 +404,7 @@ export default function PembelianUnitIndex({
               ) : (
                 paginatedData.map((row, index) => {
                   const rowNumber = (currentPage - 1) * perPage + index + 1;
+                  const statusOwner = Number(row.is_owner_acc ?? 0);
                   return (
                     <tr
                       key={row.id}
@@ -402,7 +417,27 @@ export default function PembelianUnitIndex({
                         {row.tanggal ?? "-"}
                       </td>
                       <td className="px-6 py-4 font-medium text-gray-800 dark:text-white/90">
-                        {row.keterangan ?? "-"}
+                        <div>{row.keterangan ?? "-"}</div>
+                        {statusOwner === 3 && row.alasan_penolakan && (
+                          <div className="text-xs text-red-500 mt-0.5">
+                            Alasan: {row.alasan_penolakan}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                        {statusOwner === 2 ? (
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-950 dark:text-green-400">
+                            Disetujui
+                          </span>
+                        ) : statusOwner === 3 ? (
+                          <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
+                            Ditolak
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                            Pending
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400">
                         {row.total_unit ?? 0}
@@ -560,7 +595,55 @@ export default function PembelianUnitIndex({
                   hint={errors.lampiran?.[0] ?? "Format: JPG, PNG, atau PDF."}
                 />
               </div>
+
             </div>
+
+            {isOwner && (
+              <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-900/40">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                  Persetujuan Owner
+                </h4>
+                <div className="mt-4">
+                  <Label htmlFor="is_owner_acc">Status Persetujuan</Label>
+                  <Select
+                    id="is_owner_acc"
+                    options={[
+                      { value: "1", label: "Pending" },
+                      { value: "2", label: "Disetujui" },
+                      { value: "3", label: "Ditolak" },
+                    ]}
+                    value={isOwnerAccInput}
+                    onChange={(val) => {
+                      setIsOwnerAccInput(val);
+                      if (errors.is_owner_acc) {
+                        setErrors((prev) => ({ ...prev, is_owner_acc: [] }));
+                      }
+                    }}
+                    error={Boolean(errors.is_owner_acc)}
+                  />
+                  <FieldError error={errors.is_owner_acc} />
+                </div>
+
+                {isOwnerAccInput === "3" && (
+                  <div className="mt-4">
+                    <Label htmlFor="alasan_penolakan">Alasan Penolakan</Label>
+                    <TextArea
+                      placeholder="Masukkan alasan penolakan"
+                      rows={2}
+                      value={alasanPenolakanInput}
+                      onChange={(val) => {
+                        setAlasanPenolakanInput(val);
+                        if (errors.alasan_penolakan) {
+                          setErrors((prev) => ({ ...prev, alasan_penolakan: [] }));
+                        }
+                      }}
+                      error={Boolean(errors.alasan_penolakan)}
+                      hint={errors.alasan_penolakan?.[0] ?? ""}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-900/40">
               <div className="flex items-center justify-between">

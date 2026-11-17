@@ -48,6 +48,8 @@ class PerawatanController extends Controller
                     ->values())
                 ->addColumn('petugas', fn ($row) => $row->user?->name ?? '-')
                 ->addColumn('status_pembayaran', fn ($row) => $row->status_pembayaran ?? Perawatan::BAYAR_BELUM_LUNAS)
+                ->addColumn('is_owner_acc', fn ($row) => (int) ($row->is_owner_acc ?? Perawatan::STATUS_PENDING))
+                ->addColumn('alasan_penolakan', fn ($row) => $row->alasan_penolakan ?? '')
                 ->make(true);
         }
 
@@ -61,7 +63,26 @@ class PerawatanController extends Controller
     {
         $data = Perawatan::with('details.barang', 'pengeluarans')->findOrFail($id);
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $data->id,
+                'tgl_perawatan' => $data->tgl_perawatan?->format('Y-m-d'),
+                'id_user' => $data->id_user,
+                'is_owner_acc' => (int) ($data->is_owner_acc ?? Perawatan::STATUS_PENDING),
+                'alasan_penolakan' => $data->alasan_penolakan ?? '',
+                'total_biaya_perawatan' => $data->total_biaya_perawatan,
+                'status_pembayaran' => $data->status_pembayaran,
+                'details' => $data->details->map(fn ($detail) => [
+                    'id' => $detail->id,
+                    'id_barang' => (string) $detail->id_barang,
+                    'qty' => (int) $detail->qty,
+                    'biaya_perawatan' => (int) ($detail->biaya_perawatan ?? 0),
+                    'status' => $detail->status ?? PerawatanDetail::STATUS_PERAWATAN,
+                    'keterangan' => $detail->keterangan ?? '',
+                ])->values(),
+            ],
+        ]);
     }
 
     public function store(Request $request)
@@ -69,6 +90,13 @@ class PerawatanController extends Controller
         $this->validasi($request);
 
         $tglPerawatan = Carbon::parse($request->tgl_perawatan)->toDateString();
+        $isOwner = $request->user()?->isOwner() ?? false;
+        $isOwnerAcc = $isOwner
+            ? (int) ($request->is_owner_acc ?? Perawatan::STATUS_PENDING)
+            : Perawatan::STATUS_PENDING;
+        $alasanPenolakan = $isOwner && $isOwnerAcc === Perawatan::STATUS_DITOLAK
+            ? $request->alasan_penolakan
+            : null;
 
         DB::beginTransaction();
         try {
@@ -77,13 +105,23 @@ class PerawatanController extends Controller
                 'id_user' => $request->id_user ?: auth()->id(),
                 'total_biaya_perawatan' => $this->totalBiaya($request->details),
                 'status_pembayaran' => Perawatan::BAYAR_BELUM_LUNAS,
+                'is_owner_acc' => $isOwnerAcc,
+                'alasan_penolakan' => $alasanPenolakan,
             ]);
 
             foreach ($request->details as $detail) {
-                $this->mutasiStok($this->buatDetail($perawatan, $detail));
+                $detailBaru = $this->buatDetail($perawatan, $detail);
+
+                // Hanya mutasi stok jika disetujui owner (status Disetujui)
+                if ($isOwnerAcc === Perawatan::STATUS_DISETUJUI) {
+                    $this->mutasiStok($detailBaru);
+                }
             }
 
-            $this->catatPembayaran($perawatan, $request);
+            // Hanya bayar / potong saldo jika disetujui owner (status Disetujui)
+            if ($isOwnerAcc === Perawatan::STATUS_DISETUJUI) {
+                $this->catatPembayaran($perawatan, $request);
+            }
 
             DB::commit();
 
@@ -107,26 +145,49 @@ class PerawatanController extends Controller
         $this->validasi($request);
 
         $tglPerawatan = Carbon::parse($request->tgl_perawatan)->toDateString();
+        $statusLama = (int) ($perawatan->is_owner_acc ?? Perawatan::STATUS_PENDING);
+        $isOwner = $request->user()?->isOwner() ?? false;
+
+        // Non-owner tidak boleh mengubah status persetujuan: status lama dipertahankan.
+        if ($isOwner) {
+            $statusBaru = (int) ($request->is_owner_acc ?? $statusLama);
+            $alasanPenolakan = $statusBaru === Perawatan::STATUS_DITOLAK ? $request->alasan_penolakan : null;
+        } else {
+            $statusBaru = $statusLama;
+            $alasanPenolakan = $perawatan->alasan_penolakan;
+        }
 
         DB::beginTransaction();
         try {
-            $this->batalkanSeluruhStok($perawatan);
+            // Jika sebelumnya sudah disetujui owner, batalkan stok dan pembayaran lama
+            if ($statusLama === Perawatan::STATUS_DISETUJUI) {
+                $this->batalkanSeluruhStok($perawatan);
+                $this->pembayaran->batalkan($perawatan);
+            }
 
             PerawatanDetail::where('id_perawatan', $perawatan->id)->delete();
 
             foreach ($request->details as $detail) {
-                $this->mutasiStok($this->buatDetail($perawatan, $detail));
+                $detailBaru = $this->buatDetail($perawatan, $detail);
+
+                // Mutasi stok hanya jika status baru disetujui
+                if ($statusBaru === Perawatan::STATUS_DISETUJUI) {
+                    $this->mutasiStok($detailBaru);
+                }
             }
 
             $perawatan->update([
                 'tgl_perawatan' => $tglPerawatan,
                 'id_user' => $request->id_user ?: $perawatan->id_user,
                 'total_biaya_perawatan' => $this->totalBiaya($request->details),
+                'is_owner_acc' => $statusBaru,
+                'alasan_penolakan' => $alasanPenolakan,
             ]);
 
-            $this->pembayaran->batalkan($perawatan);
-
-            $this->catatPembayaran($perawatan, $request);
+            // Mutasi keuangan hanya jika status baru disetujui
+            if ($statusBaru === Perawatan::STATUS_DISETUJUI) {
+                $this->catatPembayaran($perawatan, $request);
+            }
 
             DB::commit();
 
@@ -147,10 +208,14 @@ class PerawatanController extends Controller
     {
         $perawatan = Perawatan::with('details')->findOrFail($id);
 
+        $statusLama = (int) ($perawatan->is_owner_acc ?? Perawatan::STATUS_PENDING);
+
         DB::beginTransaction();
         try {
-            $this->batalkanSeluruhStok($perawatan);
-            $this->pembayaran->batalkan($perawatan);
+            if ($statusLama === Perawatan::STATUS_DISETUJUI) {
+                $this->batalkanSeluruhStok($perawatan);
+                $this->pembayaran->batalkan($perawatan);
+            }
 
             PerawatanDetail::where('id_perawatan', $perawatan->id)->delete();
             $perawatan->delete();
@@ -312,6 +377,8 @@ class PerawatanController extends Controller
         $request->validate([
             'tgl_perawatan' => 'required|date',
             'id_user' => 'nullable|integer|exists:users,id',
+            'is_owner_acc' => 'nullable|integer|in:'.Perawatan::STATUS_PENDING.','.Perawatan::STATUS_DISETUJUI.','.Perawatan::STATUS_DITOLAK,
+            'alasan_penolakan' => 'nullable|string',
             'details' => 'required|array|min:1',
             'details.*.id_barang' => 'required|string|exists:barang,id',
             'details.*.qty' => 'required|integer|min:1',
@@ -322,6 +389,7 @@ class PerawatanController extends Controller
         ], [
             'tgl_perawatan.required' => 'Tanggal perawatan wajib diisi.',
             'tgl_perawatan.date' => 'Tanggal perawatan tidak valid.',
+            'is_owner_acc.in' => 'Status persetujuan owner tidak valid.',
             'details.required' => 'Minimal harus ada 1 item perawatan.',
             'details.min' => 'Minimal harus ada 1 item perawatan.',
             'details.array' => 'Item perawatan tidak valid.',

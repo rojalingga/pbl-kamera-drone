@@ -46,7 +46,8 @@ export default function AdminLogin() {
     <>
       <Head title="Login Admin" />
 
-      <div className="selection:bg-brand-500 selection:text-white flex min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* min-h-screen dikompensasi zoom 0.9 di app.css agar panel tetap penuh setinggi viewport */}
+      <div className="selection:bg-brand-500 selection:text-white flex min-h-[calc(100vh/0.9)] bg-gray-50 dark:bg-gray-900">
         {/* Panel kiri: branding */}
         <div className="relative hidden w-1/2 overflow-hidden bg-gray-900 lg:flex lg:flex-col xl:w-[55%]">
           <div className="absolute inset-0 bg-gradient-to-br from-brand-700 via-brand-800 to-gray-900" />
@@ -117,7 +118,7 @@ export default function AdminLogin() {
                     className="ps-[44px]"
                     {...fieldErrorProps(errors, "username")}
                   />
-                  <span className="pointer-events-none absolute start-0 top-1/2 -translate-y-1/2 ps-3.5 text-gray-500 dark:text-gray-400">
+                  <span className="pointer-events-none absolute start-0 top-0 flex h-11 items-center ps-3.5 text-gray-500 dark:text-gray-400">
                     <UserIcon className="size-5" />
                   </span>
                 </div>
@@ -137,7 +138,7 @@ export default function AdminLogin() {
                     className="ps-[44px] pe-[44px]"
                     {...fieldErrorProps(errors, "password")}
                   />
-                  <span className="pointer-events-none absolute start-0 top-1/2 -translate-y-1/2 ps-3.5 text-gray-500 dark:text-gray-400">
+                  <span className="pointer-events-none absolute start-0 top-0 flex h-11 items-center ps-3.5 text-gray-500 dark:text-gray-400">
                     <LockIcon className="size-5" />
                   </span>
                   <button
@@ -145,7 +146,7 @@ export default function AdminLogin() {
                     onClick={() => setShowPassword((value) => !value)}
                     tabIndex={-1}
                     aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                    className="absolute end-0 top-1/2 -translate-y-1/2 pe-3.5 text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    className="absolute end-0 top-0 flex h-11 items-center pe-3.5 text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
                     {showPassword ? <EyeCloseIcon className="size-5" /> : <EyeIcon className="size-5" />}
                   </button>

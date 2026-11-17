@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Head } from "@inertiajs/react";
+import { Head, usePage } from "@inertiajs/react";
 import axios from "axios";
 import AppLayout from "@/layout/AppLayout";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -14,7 +14,7 @@ import TableFilterToolbar from "@/components/common/TableFilterToolbar";
 import TablePagination from "@/components/common/TablePagination";
 import Rupiah from "@/components/common/Rupiah";
 import RupiahInput from "@/components/common/RupiahInput";
-import { Permissions } from "@/types";
+import { Permissions, PageProps } from "@/types";
 import { confirmDelete } from "@/utils/confirm";
 import { handleFormError } from "@/utils/form-error";
 import { formatInteger, parseRupiah } from "@/utils/format";
@@ -53,6 +53,8 @@ interface PerawatanRow {
     detail_list?: DetailItem[] | string | null;
     total_biaya_perawatan: string;
     status_pembayaran: string;
+    is_owner_acc?: number;
+    alasan_penolakan?: string;
 }
 
 interface DetailRow {
@@ -100,6 +102,9 @@ const parseDetailList = (value: DetailItem[] | string | null | undefined): Detai
     }
 };
 export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
+    const { auth } = usePage<PageProps>().props;
+    const isOwner = auth?.user?.role === "Owner";
+
     const [data, setData] = useState<PerawatanRow[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
@@ -113,6 +118,8 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
         "Form Tambah Perawatan",
     );
     const [tglInput, setTglInput] = useState<string>(hariIni());
+    const [isOwnerAccInput, setIsOwnerAccInput] = useState<string>("1");
+    const [alasanPenolakanInput, setAlasanPenolakanInput] = useState<string>("");
     const [details, setDetails] = useState<DetailRow[]>([barisKosong()]);
 
     const [metodeBayar, setMetodeBayar] = useState<MetodeBayar>("cash");
@@ -199,6 +206,8 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
 
     const resetForm = () => {
         setTglInput(hariIni());
+        setIsOwnerAccInput("1");
+        setAlasanPenolakanInput("");
         setDetails([barisKosong()]);
         setMetodeBayar("cash");
         setErrors({});
@@ -227,6 +236,8 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                     ? String(item.tgl_perawatan).slice(0, 10)
                     : hariIni();
                 setTglInput(rawDate);
+                setIsOwnerAccInput(String(item.is_owner_acc ?? 1));
+                setAlasanPenolakanInput(item.alasan_penolakan ?? "");
 
                 if (item.pengeluarans && item.pengeluarans.length > 0) {
                     setMetodeBayar(
@@ -281,6 +292,8 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
 
         const payload: {
             tgl_perawatan: string;
+            is_owner_acc: string;
+            alasan_penolakan: string;
             details: {
                 id_barang: string;
                 qty: string;
@@ -292,6 +305,8 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
             _method?: string;
         } = {
             tgl_perawatan: tglInput ? tglInput.slice(0, 10) : hariIni(),
+            is_owner_acc: isOwnerAccInput,
+            alasan_penolakan: alasanPenolakanInput,
             metode_pembayaran: metodeBayar,
             details: details.map((row) => ({
                 id_barang: row.id_barang,
@@ -412,6 +427,9 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                                     Barang
                                 </th>
                                 <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Status Owner
+                                </th>
+                                <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Qty
                                 </th>
                                 <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -428,7 +446,7 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                             {loading ? (
                                 <tr>
                                     <td
-                                        colSpan={showActionColumn ? 6 : 5}
+                                        colSpan={showActionColumn ? 7 : 6}
                                         className="px-4 py-10 text-center text-sm text-gray-500"
                                     >
                                         Memuat data...
@@ -437,14 +455,16 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                             ) : paginatedData.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={showActionColumn ? 6 : 5}
+                                        colSpan={showActionColumn ? 7 : 6}
                                         className="px-4 py-10 text-center text-sm text-gray-500"
                                     >
                                         Belum ada data perawatan.
                                     </td>
                                 </tr>
                             ) : (
-                                paginatedData.map((item, index) => (
+                                paginatedData.map((item, index) => {
+                                    const statusOwner = Number(item.is_owner_acc ?? 0);
+                                    return (
                                     <tr
                                         key={item.id}
                                         className="transition-colors hover:bg-gray-50/80 dark:hover:bg-white/3"
@@ -505,6 +525,28 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                                                 )}
                                             </div>
                                         </td>
+                                        <td className="px-4 py-4 text-center whitespace-nowrap">
+                                            {statusOwner === 2 ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-950 dark:text-green-400">
+                                                    Disetujui
+                                                </span>
+                                            ) : statusOwner === 3 ? (
+                                                <div>
+                                                    <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
+                                                        Ditolak
+                                                    </span>
+                                                    {item.alasan_penolakan && (
+                                                        <div className="text-[11px] text-red-500 mt-0.5 max-w-xs text-left">
+                                                            {item.alasan_penolakan}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                                                    Pending
+                                                </span>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-4 text-center text-gray-600 dark:text-gray-400">
                                             {item.total_qty ?? 0}
                                         </td>
@@ -563,7 +605,8 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                                             </td>
                                         )}
                                     </tr>
-                                ))
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -761,6 +804,53 @@ export default function PerawatanIndex({ permissions, barangs }: IndexProps) {
                                 ))}
                             </div>
                         </div>
+
+                        {isOwner && (
+                            <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-900/40">
+                                <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                                    Persetujuan Owner
+                                </h4>
+                                <div className="mt-4 grid items-start gap-4">
+                                    <div>
+                                        <Label htmlFor="is_owner_acc">Status Persetujuan</Label>
+                                        <Select
+                                            id="is_owner_acc"
+                                            options={[
+                                                { value: "1", label: "Pending" },
+                                                { value: "2", label: "Disetujui" },
+                                                { value: "3", label: "Ditolak" },
+                                            ]}
+                                            value={isOwnerAccInput}
+                                            onChange={(val) => {
+                                                setIsOwnerAccInput(val);
+                                                if (errors.is_owner_acc) {
+                                                    setErrors((prev) => ({ ...prev, is_owner_acc: [] }));
+                                                }
+                                            }}
+                                            {...fieldErrorProps(errors, "is_owner_acc")}
+                                        />
+                                    </div>
+                                    {isOwnerAccInput === "3" && (
+                                        <div>
+                                            <Label htmlFor="alasan_penolakan">Alasan Penolakan</Label>
+                                            <Input
+                                                id="alasan_penolakan"
+                                                type="text"
+                                                placeholder="Masukkan alasan penolakan perawatan"
+                                                value={alasanPenolakanInput}
+                                                onChange={(e) => {
+                                                    setAlasanPenolakanInput(e.target.value);
+                                                    if (errors.alasan_penolakan) {
+                                                        setErrors((prev) => ({ ...prev, alasan_penolakan: [] }));
+                                                    }
+                                                }}
+                                                {...fieldErrorProps(errors, "alasan_penolakan")}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-900/40">
                             <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">

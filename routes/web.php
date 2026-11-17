@@ -20,6 +20,7 @@ use App\Http\Controllers\MasterData\KategoriController;
 use App\Http\Controllers\MasterData\KategoriTransaksiController;
 use App\Http\Controllers\MasterData\MerkController;
 use App\Http\Controllers\MasterData\RekeningController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Http\Controllers\Pengaturan\PenggunaController;
 use App\Http\Controllers\Pengaturan\RoleUserController;
@@ -88,6 +89,7 @@ Route::post('ai-cs/chat', [AiCsController::class, 'chatPublic'])->name('ai-cs.pu
 Route::middleware(['auth', CheckMenuPermission::class])->prefix('admin')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::get('dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('form-elements', fn () => Inertia::render('Admin/FormElements'))->name('form-elements.index');
 
     Route::prefix('master-data')->group(function () {

@@ -10,7 +10,9 @@ use App\Models\PerawatanDetail;
 use App\Models\Rekening;
 use App\Models\RiwayatSaldo;
 use App\Models\RiwayatStok;
+use App\Models\Role;
 use App\Models\User;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -27,7 +29,10 @@ class PerawatanTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
+        $this->seed(RoleSeeder::class);
+        $this->user = User::factory()->create([
+            'id_role' => Role::where('role', 'Owner')->firstOrFail()->id,
+        ]);
         $this->barang = Barang::create([
             'nama_barang' => 'Drone DJI',
             'stok' => 10,
@@ -72,6 +77,7 @@ class PerawatanTest extends TestCase
         $response = $this->actingAs($this->user)->postJson('/admin/transaksi/perawatan', [
             'tgl_perawatan' => '2026-10-15',
             'metode_pembayaran' => 'cash',
+            'is_owner_acc' => Perawatan::STATUS_DISETUJUI,
             'details' => [
                 [
                     'id_barang' => $this->barang->id,
@@ -140,6 +146,7 @@ class PerawatanTest extends TestCase
         $this->actingAs($this->user)->postJson("/admin/transaksi/perawatan/{$perawatan->id}", [
             'tgl_perawatan' => '2026-10-16',
             'metode_pembayaran' => 'transfer',
+            'is_owner_acc' => Perawatan::STATUS_DISETUJUI,
             'details' => [
                 [
                     'id_barang' => $this->barang->id,
@@ -168,6 +175,7 @@ class PerawatanTest extends TestCase
         $this->actingAs($this->user)->postJson("/admin/transaksi/perawatan/{$perawatan->id}", [
             'tgl_perawatan' => '2026-10-27T00:00:00.000000Z',
             'metode_pembayaran' => 'cash',
+            'is_owner_acc' => Perawatan::STATUS_DISETUJUI,
             'details' => [
                 [
                     'id_barang' => $this->barang->id,
@@ -296,10 +304,12 @@ class PerawatanTest extends TestCase
         int $qty = 1,
         int $biaya = 100000,
         string $metode = 'cash',
+        int $isOwnerAcc = Perawatan::STATUS_DISETUJUI,
     ): Perawatan {
         $this->actingAs($this->user)->postJson('/admin/transaksi/perawatan', [
             'tgl_perawatan' => '2026-10-15',
             'metode_pembayaran' => $metode,
+            'is_owner_acc' => $isOwnerAcc,
             'details' => [
                 [
                     'id_barang' => $this->barang->id,
@@ -312,5 +322,67 @@ class PerawatanTest extends TestCase
         ])->assertOk();
 
         return Perawatan::with('details')->firstOrFail();
+    }
+
+    public function test_non_owner_tidak_bisa_menyetujui_perawatan_saat_store(): void
+    {
+        $nonOwner = User::factory()->create([
+            'id_role' => Role::where('role', 'Admin')->firstOrFail()->id,
+        ]);
+
+        $this->actingAs($nonOwner)->postJson('/admin/transaksi/perawatan', [
+            'tgl_perawatan' => '2026-10-15',
+            'metode_pembayaran' => 'cash',
+            'is_owner_acc' => Perawatan::STATUS_DISETUJUI,
+            'alasan_penolakan' => null,
+            'details' => [
+                [
+                    'id_barang' => $this->barang->id,
+                    'qty' => 2,
+                    'biaya_perawatan' => 150000,
+                    'status' => PerawatanDetail::STATUS_PERAWATAN,
+                ],
+            ],
+        ])->assertOk()->assertJson(['status' => 'success']);
+
+        $perawatan = Perawatan::firstOrFail();
+
+        $this->assertSame(Perawatan::STATUS_PENDING, (int) $perawatan->is_owner_acc);
+        $this->assertNull($perawatan->alasan_penolakan);
+        $this->assertSame(10, (int) $this->barang->fresh()->stok);
+        $this->assertSame(0, Pengeluaran::count());
+        $this->assertSame(0, RiwayatStok::count());
+        $this->assertSame(Perawatan::BAYAR_BELUM_LUNAS, $perawatan->status_pembayaran);
+    }
+
+    public function test_non_owner_tidak_bisa_mengubah_status_persetujuan_saat_update(): void
+    {
+        $perawatan = $this->buatPerawatan(isOwnerAcc: Perawatan::STATUS_DISETUJUI);
+
+        $nonOwner = User::factory()->create([
+            'id_role' => Role::where('role', 'Admin')->firstOrFail()->id,
+        ]);
+
+        $this->actingAs($nonOwner)->postJson("/admin/transaksi/perawatan/{$perawatan->id}", [
+            'tgl_perawatan' => '2026-10-16',
+            'metode_pembayaran' => 'cash',
+            'is_owner_acc' => Perawatan::STATUS_PENDING,
+            'alasan_penolakan' => 'Ditolak dari request manual',
+            'details' => [
+                [
+                    'id_barang' => $this->barang->id,
+                    'qty' => 1,
+                    'biaya_perawatan' => 100000,
+                    'status' => PerawatanDetail::STATUS_PERAWATAN,
+                ],
+            ],
+            '_method' => 'PUT',
+        ])->assertOk()->assertJson(['status' => 'success']);
+
+        $perawatan->refresh();
+
+        $this->assertSame(Perawatan::STATUS_DISETUJUI, (int) $perawatan->is_owner_acc);
+        $this->assertNull($perawatan->alasan_penolakan);
+        $this->assertSame(1, Pengeluaran::where('id_perawatan', $perawatan->id)->count());
     }
 }

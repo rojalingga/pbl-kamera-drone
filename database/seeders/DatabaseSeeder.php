@@ -35,6 +35,10 @@ class DatabaseSeeder extends Seeder
             RoleUserSeeder::class,
             KategoriTransaksiSeeder::class,
             RekeningSeeder::class,
+            KategoriSeeder::class,
+            MerkSeeder::class,
+            CustomerSeeder::class,
+            BarangSeeder::class,
         ]);
 
         foreach ($this->akun as $akun) {

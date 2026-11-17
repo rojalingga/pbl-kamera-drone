@@ -10,6 +10,12 @@ class Perawatan extends Model
 
     public const BAYAR_LUNAS = 'Lunas';
 
+    public const STATUS_PENDING = 1;
+
+    public const STATUS_DISETUJUI = 2;
+
+    public const STATUS_DITOLAK = 3;
+
     protected $table = 'perawatan';
 
     protected $fillable = [
@@ -18,11 +24,14 @@ class Perawatan extends Model
         'total_biaya_perawatan',
         'status_pembayaran',
         'no_kwitansi',
+        'is_owner_acc',
+        'alasan_penolakan',
     ];
 
     protected $casts = [
         'tgl_perawatan' => 'date:Y-m-d',
         'total_biaya_perawatan' => 'integer',
+        'is_owner_acc' => 'integer',
     ];
 
     public function details()

@@ -9,9 +9,11 @@ use App\Models\PembelianUnitDetail;
 use App\Models\Pengeluaran;
 use App\Models\Rekening;
 use App\Models\RiwayatStok;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\RiwayatSaldoService;
 use App\Services\RiwayatStokService;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,7 +33,10 @@ class PembelianUnitTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
+        $this->seed(RoleSeeder::class);
+        $this->user = User::factory()->create([
+            'id_role' => Role::where('role', 'Owner')->firstOrFail()->id,
+        ]);
         $this->barangA = Barang::create([
             'nama_barang' => 'Drone DJI',
             'stok' => 0,
@@ -53,6 +58,7 @@ class PembelianUnitTest extends TestCase
         $response = $this->actingAs($this->user)->postJson(route('pembelian-unit.store'), [
             'tanggal' => '2026-09-30',
             'keterangan' => 'Beli unit baru',
+            'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
             'id_rekening' => $this->rekening->id,
             'details' => [
                 ['id_barang' => $this->barangA->id, 'harga_beli' => 5000000, 'jumlah' => 1],
@@ -88,6 +94,7 @@ class PembelianUnitTest extends TestCase
         $this->actingAs($this->user)->postJson(route('pembelian-unit.store'), [
             'tanggal' => '2026-09-30',
             'keterangan' => 'Beli unit baru',
+            'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
             'id_rekening' => $this->rekening->id,
             'details' => [
                 ['id_barang' => $this->barangA->id, 'harga_beli' => 5000000, 'jumlah' => 1],
@@ -100,7 +107,11 @@ class PembelianUnitTest extends TestCase
 
     public function test_update_menulis_ulang_stok_dan_pengeluaran(): void
     {
-        $pembelian = PembelianUnit::create(['tanggal' => '2026-09-30', 'keterangan' => 'Awal']);
+        $pembelian = PembelianUnit::create([
+            'tanggal' => '2026-09-30',
+            'keterangan' => 'Awal',
+            'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
+        ]);
         $detail = PembelianUnitDetail::create([
             'id_pembelian_unit' => $pembelian->id,
             'id_barang' => $this->barangA->id,
@@ -126,6 +137,7 @@ class PembelianUnitTest extends TestCase
             ->putJson(route('pembelian-unit.update', $pembelian->id), [
                 'tanggal' => '2026-09-30',
                 'keterangan' => 'Revisi',
+                'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
                 'id_rekening' => $this->rekening->id,
                 'details' => [
                     ['id_barang' => $this->barangB->id, 'harga_beli' => 3000000, 'jumlah' => 1],
@@ -143,7 +155,11 @@ class PembelianUnitTest extends TestCase
 
     public function test_destroy_mengembalikan_stok_dan_menghapus_pengeluaran(): void
     {
-        $pembelian = PembelianUnit::create(['tanggal' => '2026-09-30', 'keterangan' => 'Awal']);
+        $pembelian = PembelianUnit::create([
+            'tanggal' => '2026-09-30',
+            'keterangan' => 'Awal',
+            'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
+        ]);
         $detail = PembelianUnitDetail::create([
             'id_pembelian_unit' => $pembelian->id,
             'id_barang' => $this->barangA->id,
@@ -204,6 +220,7 @@ class PembelianUnitTest extends TestCase
         $this->actingAs($this->user)->postJson(route('pembelian-unit.store'), [
             'tanggal' => '2026-09-30',
             'keterangan' => 'Beli unit baru',
+            'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
             'id_rekening' => $this->rekening->id,
             'details' => [[
                 'id_barang' => $this->barangA->id, 'harga_beli' => 5000000, 'jumlah' => 1,
@@ -217,5 +234,64 @@ class PembelianUnitTest extends TestCase
         $this->assertSame('Pembelian Unit', $response->json('data.0.sumber'));
         $this->assertSame(1, (int) $response->json('data.0.jumlah'));
         $this->assertSame(1, (int) $response->json('data.0.stok'));
+    }
+
+    public function test_non_owner_tidak_bisa_menyetujui_pembelian_saat_store(): void
+    {
+        $nonOwner = $this->buatUserNonOwner();
+
+        $this->actingAs($nonOwner)->postJson(route('pembelian-unit.store'), [
+            'tanggal' => '2026-09-30',
+            'keterangan' => 'Beli unit baru',
+            'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
+            'id_rekening' => $this->rekening->id,
+            'details' => [
+                ['id_barang' => $this->barangA->id, 'harga_beli' => 5000000, 'jumlah' => 1],
+            ],
+        ])->assertOk()->assertJson(['status' => 'success']);
+
+        $pembelian = PembelianUnit::firstOrFail();
+
+        $this->assertSame(PembelianUnit::STATUS_PENDING, (int) $pembelian->is_owner_acc);
+        $this->assertSame(0, (int) $this->barangA->fresh()->stok);
+        $this->assertSame(0, Pengeluaran::count());
+        $this->assertSame(10000000, (int) $this->rekening->fresh()->saldo);
+        $this->assertSame(0, RiwayatStok::count());
+    }
+
+    public function test_non_owner_tidak_bisa_mengubah_status_persetujuan_saat_update(): void
+    {
+        $pembelian = PembelianUnit::create([
+            'tanggal' => '2026-09-30',
+            'keterangan' => 'Awal',
+            'is_owner_acc' => PembelianUnit::STATUS_PENDING,
+        ]);
+
+        $nonOwner = $this->buatUserNonOwner();
+
+        $this->actingAs($nonOwner)
+            ->putJson(route('pembelian-unit.update', $pembelian->id), [
+                'tanggal' => '2026-09-30',
+                'keterangan' => 'Revisi',
+                'is_owner_acc' => PembelianUnit::STATUS_DISETUJUI,
+                'id_rekening' => $this->rekening->id,
+                'details' => [
+                    ['id_barang' => $this->barangA->id, 'harga_beli' => 5000000, 'jumlah' => 1],
+                ],
+            ])
+            ->assertOk()
+            ->assertJson(['status' => 'success']);
+
+        $this->assertSame(PembelianUnit::STATUS_PENDING, (int) $pembelian->fresh()->is_owner_acc);
+        $this->assertSame(0, (int) $this->barangA->fresh()->stok);
+        $this->assertSame(0, Pengeluaran::count());
+        $this->assertSame(10000000, (int) $this->rekening->fresh()->saldo);
+    }
+
+    private function buatUserNonOwner(): User
+    {
+        return User::factory()->create([
+            'id_role' => Role::where('role', 'Admin')->firstOrFail()->id,
+        ]);
     }
 }

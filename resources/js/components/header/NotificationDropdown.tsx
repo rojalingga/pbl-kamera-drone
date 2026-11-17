@@ -1,40 +1,103 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { router } from "@inertiajs/react";
 import { cn } from "@/utils";
-import { useState } from "react";
-import { Link } from "@inertiajs/react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
+import { Modal } from "../ui/modal";
+
+interface NotifItem {
+  id: string;
+  kategori: string;
+  judul: string;
+  pesan: string;
+  waktu: string;
+  tipe: "danger" | "warning" | "info" | "success";
+  url: string;
+  target_menu: string;
+}
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [notifList, setNotifList] = useState<NotifItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Filter & Search untuk DataTable di Modal
+  const [search, setSearch] = useState("");
+  const [filterKategori, setFilterKategori] = useState<string>("Semua");
+  const [perPage, setPerPage] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get("/admin/notifications");
+      if (res.data?.status === "success") {
+        setNotifList(res.data.data ?? []);
+      }
+    } catch (err) {
+      console.error("Gagal memuat notifikasi:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
+    if (!isOpen) {
+      fetchNotifications();
+    }
   };
 
   const closeDropdown = () => {
     setIsOpen(false);
   };
 
-  const handleClick = () => {
-    toggleDropdown();
-    setNotifying(false);
+  const handleOpenModal = () => {
+    closeDropdown();
+    setIsModalOpen(true);
   };
+
+  const handleGoTo = (url: string) => {
+    closeDropdown();
+    setIsModalOpen(false);
+    router.visit(url);
+  };
+
+  const filteredNotifs = notifList.filter((item) => {
+    const matchKategori = filterKategori === "Semua" || item.kategori === filterKategori;
+    const matchSearch =
+      item.judul.toLowerCase().includes(search.toLowerCase()) ||
+      item.pesan.toLowerCase().includes(search.toLowerCase()) ||
+      item.kategori.toLowerCase().includes(search.toLowerCase());
+    return matchKategori && matchSearch;
+  });
+
+  const totalPages = Math.ceil(filteredNotifs.length / perPage) || 1;
+  const paginatedNotifs = filteredNotifs.slice(
+    (currentPage - 1) * perPage,
+    currentPage * perPage
+  );
 
   return (
     <div className="relative">
       <button
         className="dropdown-toggle relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-        onClick={handleClick}
+        onClick={toggleDropdown}
+        title="Notifikasi"
       >
-        <span
-          className={cn(
-            "absolute inset-e-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400",
-            !notifying ? "hidden" : "flex",
-          )}
-        >
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
-        </span>
+        {notifList.length > 0 && (
+          <span className="absolute -top-1 -end-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-[11px] font-bold text-white shadow-sm">
+            {notifList.length > 99 ? "99+" : notifList.length}
+          </span>
+        )}
         <svg
           className="fill-current"
           width="20"
@@ -54,20 +117,27 @@ export default function NotificationDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute -inset-s-13.5 mt-4.25 flex h-120 w-87.5 flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-90.25 xl:inset-s-auto xl:inset-e-0 dark:border-gray-800 dark:bg-gray-dark"
+        className="absolute -inset-s-13.5 mt-4.25 flex max-h-120 w-87.5 flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg sm:w-90.25 xl:inset-s-auto xl:inset-e-0 dark:border-gray-800 dark:bg-gray-900"
       >
-        <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-700">
-          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Notification
-          </h5>
+        <div className="mb-2 flex items-center justify-between border-b border-gray-100 pb-2.5 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <h5 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+              Notifikasi
+            </h5>
+            {notifList.length > 0 && (
+              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600 dark:bg-brand-950 dark:text-brand-400">
+                {notifList.length} baru
+              </span>
+            )}
+          </div>
           <button
-            onClick={toggleDropdown}
+            onClick={closeDropdown}
             className="text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <svg
               className="fill-current"
-              width="24"
-              height="24"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -81,305 +151,214 @@ export default function NotificationDropdown() {
           </button>
         </div>
 
-        <ul className="flex custom-scrollbar h-auto flex-col overflow-y-auto">
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-02.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Terry Franci
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>5 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-03.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Alena Franci
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>8 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-04.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Jocelyn Kenter
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>15 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-              to="/"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-05.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Brandon Philips
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>1 hr ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-              onItemClick={closeDropdown}
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-02.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Terry Franci
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>5 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-03.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Alena Franci
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>8 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-04.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Jocelyn Kenter
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>15 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-05.jpg"
-                  alt="User"
-                  className="overflow-hidden rounded-full"
-                />
-                <span className="absolute inset-e-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Brandon Philips
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                  <span>1 hr ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
+        <ul className="flex max-h-80 flex-col overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+          {notifList.length === 0 ? (
+            <li className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              Tidak ada notifikasi baru
+            </li>
+          ) : (
+            notifList.slice(0, 5).map((notif) => (
+              <li key={notif.id}>
+                <DropdownItem
+                  onItemClick={() => handleGoTo(notif.url)}
+                  className="flex flex-col gap-1 p-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[11px] font-semibold",
+                        notif.tipe === "danger"
+                          ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                      )}
+                    >
+                      {notif.kategori}
+                    </span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {notif.waktu}
+                    </span>
+                  </div>
+                  <div className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                    {notif.judul}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                    {notif.pesan}
+                  </div>
+                </DropdownItem>
+              </li>
+            ))
+          )}
         </ul>
-        <Link
-          href="#"
-          className="mt-3 block rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+
+        <button
+          type="button"
+          onClick={handleOpenModal}
+          className="mt-2 block w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-center text-xs font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-750"
         >
-          View All Notifications
-        </Link>
+          Lihat Semua Notifikasi
+        </button>
       </Dropdown>
+
+      {/* Modal Big: Datatable Notifikasi */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        className="max-w-4xl p-6"
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 pb-4 dark:border-gray-800">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              Semua Notifikasi
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Daftar pengembalian melewati batas waktu dan transaksi yang butuh persetujuan owner
+            </p>
+          </div>
+        </div>
+
+        {/* Toolbar Filter & Search */}
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <select
+              value={filterKategori}
+              onChange={(e) => {
+                setFilterKategori(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              <option value="Semua">Semua Kategori</option>
+              <option value="Pengembalian">Pengembalian Telat</option>
+              <option value="Pembelian Unit">Pembelian Unit (Pending)</option>
+              <option value="Perawatan">Perawatan (Pending)</option>
+            </select>
+
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              <option value={5}>5 per hal</option>
+              <option value={10}>10 per hal</option>
+              <option value={25}>25 per hal</option>
+            </select>
+          </div>
+
+          <div className="w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Cari notifikasi..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            />
+          </div>
+        </div>
+
+        {/* Table Notifikasi */}
+        <div className="mt-4 max-h-[50vh] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-800">
+          <table className="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+            <thead className="sticky top-0 bg-gray-50 text-[11px] font-semibold uppercase text-gray-500 dark:bg-gray-800/80 dark:text-gray-400">
+              <tr>
+                <th className="px-4 py-3">No</th>
+                <th className="px-4 py-3">Kategori</th>
+                <th className="px-4 py-3">Judul & Keterangan</th>
+                <th className="px-4 py-3">Tanggal / Waktu</th>
+                <th className="px-4 py-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {paginatedNotifs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                    Tidak ada notifikasi yang sesuai filter.
+                  </td>
+                </tr>
+              ) : (
+                paginatedNotifs.map((item, idx) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-500">
+                      {(currentPage - 1) * perPage + idx + 1}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                          item.tipe === "danger"
+                            ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                        )}
+                      >
+                        {item.kategori}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-gray-900 dark:text-white">
+                        {item.judul}
+                      </div>
+                      <div className="text-gray-500 dark:text-gray-400">
+                        {item.pesan}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400">
+                      {item.waktu}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleGoTo(item.url)}
+                        className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-600 focus:outline-none"
+                      >
+                        Ke Menu {item.target_menu}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        {filteredNotifs.length > 0 && (
+          <div className="mt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Menampilkan {Math.min((currentPage - 1) * perPage + 1, filteredNotifs.length)} -{" "}
+              {Math.min(currentPage * perPage, filteredNotifs.length)} dari {filteredNotifs.length} data
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+              >
+                Sebelumnya
+              </button>
+              <span className="px-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

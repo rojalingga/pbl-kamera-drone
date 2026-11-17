@@ -61,6 +61,8 @@ class PembelianUnitController extends Controller
 
                     return $btn;
                 })
+                ->addColumn('is_owner_acc', fn ($row) => (int) ($row->is_owner_acc ?? PembelianUnit::STATUS_PENDING))
+                ->addColumn('alasan_penolakan', fn ($row) => $row->alasan_penolakan ?? '')
                 ->rawColumns(['action'])
                 ->make(true);
         }
@@ -82,6 +84,8 @@ class PembelianUnitController extends Controller
                 'id' => $data->id,
                 'tanggal' => $data->tanggal?->format('Y-m-d'),
                 'keterangan' => $data->keterangan,
+                'is_owner_acc' => (int) ($data->is_owner_acc ?? PembelianUnit::STATUS_PENDING),
+                'alasan_penolakan' => $data->alasan_penolakan ?? '',
                 'id_rekening' => $data->pengeluaran?->id_rekening,
                 'lampiran' => $data->pengeluaran?->lampiran,
                 'details' => $data->details->map(fn ($detail) => [
@@ -97,11 +101,21 @@ class PembelianUnitController extends Controller
     {
         $this->validasi($request);
 
+        $isOwner = $request->user()?->isOwner() ?? false;
+        $isOwnerAcc = $isOwner
+            ? (int) ($request->is_owner_acc ?? PembelianUnit::STATUS_PENDING)
+            : PembelianUnit::STATUS_PENDING;
+        $alasanPenolakan = $isOwner && $isOwnerAcc === PembelianUnit::STATUS_DITOLAK
+            ? $request->alasan_penolakan
+            : null;
+
         DB::beginTransaction();
         try {
             $pembelian = PembelianUnit::create([
                 'tanggal' => $request->tanggal,
                 'keterangan' => $request->keterangan,
+                'is_owner_acc' => $isOwnerAcc,
+                'alasan_penolakan' => $alasanPenolakan,
             ]);
 
             foreach ($request->details as $detail) {
@@ -112,18 +126,23 @@ class PembelianUnitController extends Controller
                     'jumlah' => (int) $detail['jumlah'],
                 ]);
 
-                $this->stok->tambah($detail['id_barang'], (int) $detail['jumlah'], RiwayatStokService::MASUK, [
-                    'id_pembelian_unit_detail' => $detailBaru->id,
-                ]);
+                // Hanya mutasi stok jika disetujui owner (status Disetujui)
+                if ($isOwnerAcc === PembelianUnit::STATUS_DISETUJUI) {
+                    $this->stok->tambah($detail['id_barang'], (int) $detail['jumlah'], RiwayatStokService::MASUK, [
+                        'id_pembelian_unit_detail' => $detailBaru->id,
+                    ]);
+                }
             }
 
-            $total = $this->hitungTotal($request->details);
+            // Hanya potong saldo/catat pengeluaran jika disetujui owner (status Disetujui)
+            if ($isOwnerAcc === PembelianUnit::STATUS_DISETUJUI) {
+                $total = $this->hitungTotal($request->details);
+                $pengeluaran = $this->buatPengeluaran($pembelian->id, $request, $total);
 
-            $pengeluaran = $this->buatPengeluaran($pembelian->id, $request, $total);
-
-            $this->saldo->kurang((int) $request->id_rekening, $total, RiwayatSaldoService::KELUAR, [
-                'id_pengeluaran' => $pengeluaran->id,
-            ], $request->tanggal);
+                $this->saldo->kurang((int) $request->id_rekening, $total, RiwayatSaldoService::KELUAR, [
+                    'id_pengeluaran' => $pengeluaran->id,
+                ], $request->tanggal);
+            }
 
             DB::commit();
 
@@ -146,12 +165,45 @@ class PembelianUnitController extends Controller
 
         $this->validasi($request);
 
+        $statusLama = (int) ($pembelian->is_owner_acc ?? PembelianUnit::STATUS_PENDING);
+        $isOwner = $request->user()?->isOwner() ?? false;
+
+        // Non-owner tidak boleh mengubah status persetujuan: status lama dipertahankan.
+        if ($isOwner) {
+            $statusBaru = (int) ($request->is_owner_acc ?? $statusLama);
+            $alasanPenolakan = $statusBaru === PembelianUnit::STATUS_DITOLAK ? $request->alasan_penolakan : null;
+        } else {
+            $statusBaru = $statusLama;
+            $alasanPenolakan = $pembelian->alasan_penolakan;
+        }
+
         DB::beginTransaction();
         try {
-            foreach ($pembelian->details as $detailLama) {
-                $this->stok->batalkanMasuk($detailLama->id_barang, (int) $detailLama->jumlah, [
-                    'id_pembelian_unit_detail' => $detailLama->id,
-                ]);
+            // Jika sebelumnya sudah disetujui, batalkan mutasi stok dan saldo lama
+            if ($statusLama === PembelianUnit::STATUS_DISETUJUI) {
+                foreach ($pembelian->details as $detailLama) {
+                    $this->stok->batalkanMasuk($detailLama->id_barang, (int) $detailLama->jumlah, [
+                        'id_pembelian_unit_detail' => $detailLama->id,
+                    ]);
+                }
+
+                if ($statusBaru !== PembelianUnit::STATUS_DISETUJUI) {
+                    $pengeluaranLama = $pembelian->pengeluaran;
+                    if ($pengeluaranLama) {
+                        $idRekeningLama = (int) ($pengeluaranLama->id_rekening ?? 0);
+                        $nominalLama = (int) ($pengeluaranLama->nominal ?? 0);
+
+                        if ($idRekeningLama > 0 && $nominalLama > 0) {
+                            $this->saldo->batalkanKeluar($idRekeningLama, $nominalLama, ['id_pengeluaran' => $pengeluaranLama->id]);
+                        }
+
+                        if (! empty($pengeluaranLama->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaranLama->lampiran))) {
+                            unlink(public_path('assets/lampiran/'.$pengeluaranLama->lampiran));
+                        }
+
+                        $pengeluaranLama->delete();
+                    }
+                }
             }
 
             PembelianUnitDetail::where('id_pembelian_unit', $pembelian->id)->delete();
@@ -164,53 +216,69 @@ class PembelianUnitController extends Controller
                     'jumlah' => (int) $detail['jumlah'],
                 ]);
 
-                $this->stok->tambah($detail['id_barang'], (int) $detail['jumlah'], RiwayatStokService::MASUK, [
-                    'id_pembelian_unit_detail' => $detailBaru->id,
-                ]);
+                // Mutasi stok hanya jika status baru disetujui
+                if ($statusBaru === PembelianUnit::STATUS_DISETUJUI) {
+                    $this->stok->tambah($detail['id_barang'], (int) $detail['jumlah'], RiwayatStokService::MASUK, [
+                        'id_pembelian_unit_detail' => $detailBaru->id,
+                    ]);
+                }
             }
 
             $pembelian->update([
                 'tanggal' => $request->tanggal,
                 'keterangan' => $request->keterangan,
+                'is_owner_acc' => $statusBaru,
+                'alasan_penolakan' => $alasanPenolakan,
             ]);
 
-            $total = $this->hitungTotal($request->details);
+            // Jika status baru disetujui
+            if ($statusBaru === PembelianUnit::STATUS_DISETUJUI) {
+                $total = $this->hitungTotal($request->details);
+                $pengeluaran = $pembelian->pengeluaran;
 
-            $pengeluaran = $pembelian->pengeluaran;
+                if ($pengeluaran) {
+                    $idRekeningLama = (int) ($pengeluaran->id_rekening ?? 0);
+                    $nominalLama = (int) ($pengeluaran->nominal ?? 0);
 
-            if ($pengeluaran) {
-                $idRekeningLama = (int) ($pengeluaran->id_rekening ?? 0);
-                $nominalLama = (int) ($pengeluaran->nominal ?? 0);
+                    if ($idRekeningLama > 0 && $nominalLama > 0) {
+                        $this->saldo->batalkanKeluar($idRekeningLama, $nominalLama, ['id_pengeluaran' => $pengeluaran->id]);
+                    }
 
-                if ($idRekeningLama > 0 && $nominalLama > 0) {
-                    $this->saldo->batalkanKeluar($idRekeningLama, $nominalLama, ['id_pengeluaran' => $pengeluaran->id]);
+                    $db = $this->dataPengeluaran($pembelian->id, $request, $total);
+
+                    if ($request->hasFile('lampiran')) {
+                        if (! empty($pengeluaran->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaran->lampiran))) {
+                            unlink(public_path('assets/lampiran/'.$pengeluaran->lampiran));
+                        }
+
+                        $db['lampiran'] = $this->simpanLampiran($request);
+                    }
+
+                    $pengeluaran->update($db);
+
+                    $pengeluaranBaru = $pengeluaran->fresh();
+
+                    if ((int) ($pengeluaranBaru->id_rekening ?? 0) > 0 && (int) ($pengeluaranBaru->nominal ?? 0) > 0) {
+                        $this->saldo->kurang((int) $pengeluaranBaru->id_rekening, (int) $pengeluaranBaru->nominal, RiwayatSaldoService::KELUAR, [
+                            'id_pengeluaran' => $pengeluaranBaru->id,
+                        ], $pengeluaranBaru->tgl_pengeluaran);
+                    }
+                } else {
+                    $pengeluaranBaru = $this->buatPengeluaran($pembelian->id, $request, $total);
+
+                    $this->saldo->kurang((int) $request->id_rekening, $total, RiwayatSaldoService::KELUAR, [
+                        'id_pengeluaran' => $pengeluaranBaru->id,
+                    ], $request->tanggal);
                 }
-
-                $db = $this->dataPengeluaran($pembelian->id, $request, $total);
-
-                if ($request->hasFile('lampiran')) {
+            } else {
+                // Jika status baru bukan disetujui (Pending / Ditolak), hapus pengeluaran jika ada
+                $pengeluaran = $pembelian->pengeluaran;
+                if ($pengeluaran) {
                     if (! empty($pengeluaran->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaran->lampiran))) {
                         unlink(public_path('assets/lampiran/'.$pengeluaran->lampiran));
                     }
-
-                    $db['lampiran'] = $this->simpanLampiran($request);
+                    $pengeluaran->delete();
                 }
-
-                $pengeluaran->update($db);
-
-                $pengeluaranBaru = $pengeluaran->fresh();
-
-                if ((int) ($pengeluaranBaru->id_rekening ?? 0) > 0 && (int) ($pengeluaranBaru->nominal ?? 0) > 0) {
-                    $this->saldo->kurang((int) $pengeluaranBaru->id_rekening, (int) $pengeluaranBaru->nominal, RiwayatSaldoService::KELUAR, [
-                        'id_pengeluaran' => $pengeluaranBaru->id,
-                    ], $pengeluaranBaru->tgl_pengeluaran);
-                }
-            } else {
-                $pengeluaranBaru = $this->buatPengeluaran($pembelian->id, $request, $total);
-
-                $this->saldo->kurang((int) $request->id_rekening, $total, RiwayatSaldoService::KELUAR, [
-                    'id_pengeluaran' => $pengeluaranBaru->id,
-                ], $request->tanggal);
             }
 
             DB::commit();
@@ -236,12 +304,16 @@ class PembelianUnitController extends Controller
     {
         $pembelian = PembelianUnit::with(['details', 'pengeluaran'])->findOrFail($id);
 
+        $statusLama = (int) ($pembelian->is_owner_acc ?? PembelianUnit::STATUS_PENDING);
+
         DB::beginTransaction();
         try {
-            foreach ($pembelian->details as $detail) {
-                $this->stok->batalkanMasuk($detail->id_barang, (int) $detail->jumlah, [
-                    'id_pembelian_unit_detail' => $detail->id,
-                ]);
+            if ($statusLama === PembelianUnit::STATUS_DISETUJUI) {
+                foreach ($pembelian->details as $detail) {
+                    $this->stok->batalkanMasuk($detail->id_barang, (int) $detail->jumlah, [
+                        'id_pembelian_unit_detail' => $detail->id,
+                    ]);
+                }
             }
 
             PembelianUnitDetail::where('id_pembelian_unit', $pembelian->id)->delete();
@@ -259,7 +331,7 @@ class PembelianUnitController extends Controller
 
                 $pengeluaran->delete();
 
-                if ($idRekeningHapus > 0 && $nominalHapus > 0) {
+                if ($statusLama === PembelianUnit::STATUS_DISETUJUI && $idRekeningHapus > 0 && $nominalHapus > 0) {
                     $this->saldo->batalkanKeluar($idRekeningHapus, $nominalHapus, ['id_pengeluaran' => $idPengeluaranHapus]);
                 }
             }
@@ -286,6 +358,8 @@ class PembelianUnitController extends Controller
         $request->validate([
             'tanggal' => 'required|date',
             'keterangan' => 'nullable|string|max:255',
+            'is_owner_acc' => 'nullable|integer|in:'.PembelianUnit::STATUS_PENDING.','.PembelianUnit::STATUS_DISETUJUI.','.PembelianUnit::STATUS_DITOLAK,
+            'alasan_penolakan' => 'nullable|string',
             'id_rekening' => 'required|integer|exists:rekening,id',
             'lampiran' => 'nullable|file|mimes:jpeg,png,jpg,pdf',
             'details' => 'required|array|min:1',
@@ -295,6 +369,7 @@ class PembelianUnitController extends Controller
         ], [
             'tanggal.required' => 'Tanggal pembelian wajib diisi.',
             'tanggal.date' => 'Tanggal pembelian tidak valid.',
+            'is_owner_acc.in' => 'Status persetujuan owner tidak valid.',
             'id_rekening.required' => 'Rekening wajib dipilih.',
             'id_rekening.exists' => 'Rekening tidak valid.',
             'lampiran.mimes' => 'Lampiran harus berupa JPG, PNG, atau PDF.',
