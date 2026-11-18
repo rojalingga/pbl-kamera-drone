@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Link } from '@inertiajs/react';
 import { Sparkles, ArrowRight, ShieldCheck, Star, Clock, CheckCircle2 } from 'lucide-react';
-import gsap from 'gsap';
 
 interface HeroProps {
   onScrollToUnitUnggulan: (e: React.MouseEvent) => void;
@@ -9,38 +8,6 @@ interface HeroProps {
 }
 
 export default function Hero({ onScrollToUnitUnggulan, isDark = false }: HeroProps) {
-  const visualRef = useRef<HTMLDivElement>(null);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!visualRef.current) return;
-    const rect = visualRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -5;
-    const rotateY = ((x - centerX) / centerX) * 5;
-
-    gsap.to(visualRef.current, {
-      rotateX,
-      rotateY,
-      duration: 0.5,
-      ease: 'power2.out',
-      transformPerspective: 1200,
-      transformOrigin: 'center center',
-    });
-  };
-
-  const handleMouseLeave = () => {
-    if (!visualRef.current) return;
-    gsap.to(visualRef.current, {
-      rotateX: 0,
-      rotateY: 0,
-      duration: 0.8,
-      ease: 'power2.out',
-    });
-  };
-
   return (
     <div className="relative overflow-hidden bg-transparent pt-32 sm:pt-36 lg:pt-40 pb-16 lg:pb-24">
       {/* Background Ambient Radial Glow */}
@@ -103,58 +70,37 @@ export default function Hero({ onScrollToUnitUnggulan, isDark = false }: HeroPro
             </div>
           </div>
 
-          {/* Right Column — 3D Interactive Hero Visual */}
-          <div
-            ref={visualRef}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            className="lg:col-span-5 relative will-change-transform"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            {/* Visual Glass Container */}
-            <div className="relative rounded-[36px] overflow-hidden border border-black/10 shadow-2xl bg-white/40 backdrop-blur-xl p-3">
-              <div className="relative rounded-[28px] overflow-hidden aspect-[4/3] bg-zinc-900">
-                <img
-                  src="/assets/img/Hero.jpg"
-                  alt="SkyLens Equipment"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          {/* Right Column — Static Hero Visual (Seamless without frame/box) */}
+          <div className="lg:col-span-5 relative flex items-center justify-center">
+            <div className="relative w-full max-w-lg lg:max-w-none">
+              <img
+                src="/assets/img/Hero.png"
+                alt="SkyLens Equipment"
+                className="w-full h-auto object-contain drop-shadow-2xl select-none"
+              />
 
-                {/* Overlaid Bottom Tagline */}
-                <div className="absolute bottom-5 left-5 right-5 text-white">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-brand-400 block mb-1">
-                    STANDAR SINEMATOGRAFI
-                  </span>
-                  <p className="text-sm font-extrabold leading-snug">
-                    Dari kamera Sony FX3, DJI Inspire, hingga lensa prime G Master.
-                  </p>
+              {/* Floating Glassmorphic Pill 1 — Rating */}
+              <div className="absolute -top-2 -left-2 sm:-left-4 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-black/10 shadow-xl flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-400 text-white flex items-center justify-center">
+                  <Star className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-black">4.9 / 5.0</p>
+                  <p className="text-[10px] text-black/50 font-medium">Ulasan Kreator</p>
+                </div>
+              </div>
+
+              {/* Floating Glassmorphic Pill 2 — Ready Stock */}
+              <div className="absolute -bottom-2 -right-2 sm:-right-4 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-black/10 shadow-xl flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-black">90+ Unit Gear</p>
+                  <p className="text-[10px] text-black/50 font-medium">Siap Disewa Kapan Saja</p>
                 </div>
               </div>
             </div>
-
-            {/* Floating Glassmorphic Pill 1 — Rating */}
-            <div className="absolute -top-4 -left-4 sm:-left-6 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-black/10 shadow-xl flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-400 text-white flex items-center justify-center">
-                <Star className="w-4 h-4 fill-current" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-black">4.9 / 5.0</p>
-                <p className="text-[10px] text-black/50 font-medium">Ulasan Kreator</p>
-              </div>
-            </div>
-
-            {/* Floating Glassmorphic Pill 2 — Ready Stock */}
-            <div className="absolute -bottom-4 -right-4 sm:-right-6 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-black/10 shadow-xl flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-black">90+ Unit Gear</p>
-                <p className="text-[10px] text-black/50 font-medium">Siap Disewa Kapan Saja</p>
-              </div>
-            </div>
-
           </div>
 
         </div>
