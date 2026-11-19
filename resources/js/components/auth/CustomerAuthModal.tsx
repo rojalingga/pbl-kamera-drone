@@ -48,6 +48,18 @@ export default function CustomerAuthModal({
     }
   }, [isOpen, initialMode]);
 
+  // Kunci scroll vertikal pada halaman utama (body) saat modal terbuka
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {

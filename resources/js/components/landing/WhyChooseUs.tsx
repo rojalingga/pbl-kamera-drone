@@ -34,19 +34,19 @@ export default function WhyChooseUs({ isDark = false }: WhyChooseUsProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Scroll-based bidirectional reveal animation
+  // 1. Scroll-based bidirectional reveal animation with trigger threshold at 0.50
   useEffect(() => {
     const handleScroll = () => {
       if (!contentRef.current) return;
       const rect = contentRef.current.getBoundingClientRect();
       
-      // Trigger when the top of the content is around 25% of the viewport height.
-      // (Raised further as requested)
-      const triggerPoint = window.innerHeight * 0.25;
+      // Ambang batas scroll (trigger threshold) 0.50 viewport height
+      const enterTrigger = window.innerHeight * 0.50;
+      const exitTrigger = window.innerHeight * 0.65;
       
-      if (rect.top <= triggerPoint) {
+      if (rect.top <= enterTrigger) {
         setIsRevealed(true);
-      } else {
+      } else if (rect.top > exitTrigger) {
         setIsRevealed(false);
       }
     };
@@ -124,10 +124,10 @@ export default function WhyChooseUs({ isDark = false }: WhyChooseUsProps) {
             
             {/* ── LEFT: Animated Menu List ── */}
             <div 
-              className={`absolute left-0 top-4 w-[42%] z-10 transition-all duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              className={`absolute left-0 top-4 w-[42%] z-10 transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 isRevealed 
                   ? 'opacity-100 translate-x-0 pointer-events-auto' 
-                  : 'opacity-0 -translate-x-16 pointer-events-none'
+                  : 'opacity-0 -translate-x-12 pointer-events-none'
               }`}
             >
               <div className="flex flex-col gap-12 max-w-lg">
@@ -159,7 +159,7 @@ export default function WhyChooseUs({ isDark = false }: WhyChooseUsProps) {
 
             {/* ── RIGHT: Image Container (Fixed size, Slides from Center to Right) ── */}
             <div 
-              className={`w-[58%] ml-auto transition-transform duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)] relative z-0 ${
+              className={`w-[58%] ml-auto transition-transform duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] relative z-0 ${
                 isRevealed ? 'translate-x-0' : '-translate-x-[36.2%]'
               }`}
             >
