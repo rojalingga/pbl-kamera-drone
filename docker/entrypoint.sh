@@ -14,8 +14,11 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Sesuaikan port Nginx dengan variabel $PORT dari hosting (default 80)
 PORT=${PORT:-80}
-sed -i "s/listen 80;/listen ${PORT};/g" /etc/nginx/http.d/default.conf
-sed -i "s/listen \[::\]:80;/listen [::]:${PORT};/g" /etc/nginx/http.d/default.conf
+echo "Configuring Nginx to listen on port: ${PORT}..."
+sed -i "s/listen 80 default_server;/listen ${PORT} default_server;/g" /etc/nginx/http.d/default.conf
+
+# Validasi konfigurasi Nginx
+nginx -t
 
 # Jalankan storage:link bila belum ada
 php artisan storage:link --force || true
