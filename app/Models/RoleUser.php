@@ -19,6 +19,19 @@ class RoleUser extends Model
         'hapus',
     ];
 
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'lihat' => 'integer',
+            'tambah' => 'integer',
+            'edit' => 'integer',
+            'hapus' => 'integer',
+        ];
+    }
+
     public function role()
     {
         return $this->belongsTo(Role::class, 'id_role');

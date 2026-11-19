@@ -27,10 +27,10 @@ class HakAksesController extends Controller
                 ->first();
 
             return [
-                'lihat' => $hakAkses?->lihat ?? 0,
-                'tambah' => $hakAkses?->tambah ?? 0,
-                'edit' => $hakAkses?->edit ?? 0,
-                'hapus' => $hakAkses?->hapus ?? 0,
+                'lihat' => (int) ($hakAkses?->lihat ? 1 : 0),
+                'tambah' => (int) ($hakAkses?->tambah ? 1 : 0),
+                'edit' => (int) ($hakAkses?->edit ? 1 : 0),
+                'hapus' => (int) ($hakAkses?->hapus ? 1 : 0),
             ];
         }
 

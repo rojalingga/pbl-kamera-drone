@@ -19,6 +19,19 @@ class HakAkses extends Model
         'hapus',
     ];
 
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'lihat' => 'integer',
+            'tambah' => 'integer',
+            'edit' => 'integer',
+            'hapus' => 'integer',
+        ];
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'id_user');
