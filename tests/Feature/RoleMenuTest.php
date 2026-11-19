@@ -57,12 +57,11 @@ class RoleMenuTest extends TestCase
         }
     }
 
-    public function test_teknisi_hanya_melihat_pengembalian_dan_perawatan(): void
+    public function test_teknisi_hanya_melihat_perawatan(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $diizinkan = collect([
-            Menu::where('route_name', 'pengembalian.index')->value('id'),
             Menu::where('route_name', 'perawatan.index')->value('id'),
             Menu::where('title', 'Transaksi')->value('id'),
         ]);
@@ -89,7 +88,7 @@ class RoleMenuTest extends TestCase
 
         $teknisi = User::where('username', 'teknisi1')->first();
 
-        $this->assertSame(3, HakAkses::where('id_user', $teknisi->id)->where('lihat', 1)->count());
+        $this->assertSame(2, HakAkses::where('id_user', $teknisi->id)->where('lihat', 1)->count());
         $this->assertSame(27, HakAkses::where('id_user', $teknisi->id)->count());
 
         $admin = User::where('username', 'admin')->first();

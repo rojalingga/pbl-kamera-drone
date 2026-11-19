@@ -85,7 +85,6 @@ class RoleUserSeeder extends Seeder
             'Pengaturan' => [1, 0, 0, 0],
         ],
         'Teknisi' => [
-            'pengembalian.index' => [1, 1, 1, 1],
             'perawatan.index' => [1, 1, 1, 1],
 
             'Transaksi' => [1, 0, 0, 0],

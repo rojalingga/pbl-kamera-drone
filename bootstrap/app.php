@@ -25,7 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'midtrans/webhook',
         ]);
         $middleware->redirectUsersTo(
-            fn (Request $request) => $request->is('admin') || $request->is('admin/*') ? route('dashboard.index') : route('home')
+            fn (Request $request) => $request->is('admin') || $request->is('admin/*')
+                ? (auth()->check() ? SetMenuSession::firstUrlFor((int) auth()->id()) : route('dashboard.index'))
+                : route('home')
         );
         $middleware->redirectGuestsTo(
             fn (Request $request) => $request->is('admin') || $request->is('admin/*') ? route('login') : route('home')

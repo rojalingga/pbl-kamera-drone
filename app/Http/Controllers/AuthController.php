@@ -60,11 +60,13 @@ class AuthController extends Controller
         SetMenuSession::flush();
         $request->session()->forget('url.intended');
 
+        $redirectUrl = SetMenuSession::firstUrlFor((int) $user->id);
+
         if ($request->wantsJson() && ! $request->header('X-Inertia')) {
-            return response()->json(['redirect' => route('dashboard.index')]);
+            return response()->json(['redirect' => $redirectUrl]);
         }
 
-        return redirect()->route('dashboard.index');
+        return redirect($redirectUrl);
     }
 
     public function logout(Request $request)

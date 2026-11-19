@@ -77,6 +77,28 @@ class SetMenuSession
     }
 
     /**
+     * Dapatkan URL route pertama yang boleh diakses user (untuk redirect setelah login).
+     */
+    public static function firstUrlFor(int $userId): string
+    {
+        $menus = self::build($userId);
+
+        foreach ($menus as $menu) {
+            if (! empty($menu['url'])) {
+                return $menu['url'];
+            }
+
+            foreach ($menu['children'] ?? [] as $child) {
+                if (! empty($child['url'])) {
+                    return $child['url'];
+                }
+            }
+        }
+
+        return route('dashboard.index');
+    }
+
+    /**
      * Path menu (tanpa host), null untuk baris yang bukan route (mis. header grup
      * "#") atau nama route yang tidak lagi terdaftar.
      *

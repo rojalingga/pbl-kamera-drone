@@ -4,19 +4,11 @@ import axios from "axios";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import { fieldErrorProps } from "@/components/form/FieldError";
-import { CheckCircleIcon, EyeCloseIcon, EyeIcon, LockIcon, UserIcon } from "@/icons";
+import { EyeCloseIcon, EyeIcon, LockIcon, UserIcon } from "@/icons";
 import { handleFormError } from "@/utils/form-error";
 import { playSound } from "@/utils/sound";
-import type { PageProps } from "@/types";
-
-const FITUR = [
-  "Kelola penyewaan, pengembalian, dan perawatan unit dalam satu tempat.",
-  "Pantau stok, keuangan, dan piutang secara real-time.",
-  "Hak akses bertingkat untuk setiap pengguna tim.",
-];
 
 export default function AdminLogin() {
-  const { appName } = usePage<PageProps>().props;
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -69,20 +61,10 @@ export default function AdminLogin() {
                 Kelola transaksi sewa, inventaris, dan keuangan rental Anda dari satu panel yang rapi dan mudah dipantau.
               </p>
 
-              <ul className="mt-8 space-y-4">
-                {FITUR.map((fitur) => (
-                  <li key={fitur} className="flex items-start gap-3 text-sm text-white/80">
-                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-white/10 ring-1 ring-inset ring-white/20">
-                      <CheckCircleIcon className="size-3.5" />
-                    </span>
-                    <span>{fitur}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
 
             <p className="text-xs text-white/50">
-              &copy; {new Date().getFullYear()} {appName}. Seluruh hak cipta dilindungi.
+              &copy; {new Date().getFullYear()} Skylens. Seluruh hak cipta dilindungi.
             </p>
           </div>
         </div>
@@ -161,15 +143,6 @@ export default function AdminLogin() {
                 {loading ? "Memproses..." : "Masuk"}
               </button>
             </form>
-
-            <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/50">
-              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Akun demo</p>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Username <span className="font-medium text-gray-700 dark:text-gray-300">admin</span>
-                {" · "}
-                Password <span className="font-medium text-gray-700 dark:text-gray-300">password</span>
-              </p>
-            </div>
 
             <Link
               href="/"
