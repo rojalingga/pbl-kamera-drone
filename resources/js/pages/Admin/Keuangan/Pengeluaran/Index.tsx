@@ -575,7 +575,7 @@ if (errors.nominal) {
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Lampiran saat ini:{" "}
                   <a
-                    href={`/assets/lampiran/${lampiranLama}`}
+                    href={lampiranLama.startsWith("http") ? lampiranLama : `/assets/lampiran/${lampiranLama}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-brand-500 underline"

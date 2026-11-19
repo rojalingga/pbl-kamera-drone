@@ -14,19 +14,24 @@ use App\Models\SewaDetail;
 use App\Services\NomorDokumenService;
 use App\Services\RiwayatSaldoService;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Yajra\DataTables\Facades\DataTables;
 
 class SewaController extends Controller
 {
-    public function __construct(private RiwayatStokService $stok, private RiwayatSaldoService $saldo, private NomorDokumenService $nomor) {}
+    public function __construct(
+        private RiwayatStokService $stok,
+        private RiwayatSaldoService $saldo,
+        private NomorDokumenService $nomor,
+        private SupabaseStorageService $storage
+    ) {}
 
     public function index(Request $request)
     {
@@ -182,8 +187,8 @@ class SewaController extends Controller
             ];
 
             if ($request->hasFile('foto_jaminan')) {
-                if (! empty($sewa->foto_jaminan) && file_exists(public_path('assets/jaminan/'.$sewa->foto_jaminan))) {
-                    unlink(public_path('assets/jaminan/'.$sewa->foto_jaminan));
+                if (! empty($sewa->foto_jaminan)) {
+                    $this->storage->delete($sewa->foto_jaminan, 'jaminan');
                 }
 
                 $db['foto_jaminan'] = $this->simpanJaminan($request);
@@ -218,8 +223,8 @@ class SewaController extends Controller
 
         DB::beginTransaction();
         try {
-            if (! empty($sewa->foto_jaminan) && file_exists(public_path('assets/jaminan/'.$sewa->foto_jaminan))) {
-                unlink(public_path('assets/jaminan/'.$sewa->foto_jaminan));
+            if (! empty($sewa->foto_jaminan)) {
+                $this->storage->delete($sewa->foto_jaminan, 'jaminan');
             }
 
             foreach ($sewa->details as $detail) {
@@ -305,11 +310,7 @@ class SewaController extends Controller
             return '';
         }
 
-        $file = $request->file('foto_jaminan');
-        $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-        $file->move(public_path('assets/jaminan'), $filename);
-
-        return $filename;
+        return $this->storage->upload($request->file('foto_jaminan'), 'jaminan');
     }
 
     /**
@@ -321,8 +322,8 @@ class SewaController extends Controller
         $db = [];
 
         if ($request->hasFile('foto_jaminan')) {
-            if (! empty($sewa->foto_jaminan) && file_exists(public_path('assets/jaminan/'.$sewa->foto_jaminan))) {
-                unlink(public_path('assets/jaminan/'.$sewa->foto_jaminan));
+            if (! empty($sewa->foto_jaminan)) {
+                $this->storage->delete($sewa->foto_jaminan, 'jaminan');
             }
 
             $db['foto_jaminan'] = $this->simpanJaminan($request);

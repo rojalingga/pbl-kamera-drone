@@ -7,17 +7,19 @@ use App\Models\HakAkses;
 use App\Models\Role;
 use App\Models\RoleUser;
 use App\Models\User;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Yajra\DataTables\Facades\DataTables;
 
 class PenggunaController extends Controller
 {
+    public function __construct(private SupabaseStorageService $storage) {}
+
     public function index(Request $request)
     {
         $permissions = HakAksesController::getUserPermissions();
@@ -69,10 +71,7 @@ class PenggunaController extends Controller
             $foto = '';
 
             if ($request->hasFile('foto')) {
-                $file = $request->file('foto');
-                $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-                $file->move($this->direktoriFoto(), $filename);
-                $foto = $filename;
+                $foto = $this->storage->upload($request->file('foto'), 'pengguna');
             }
 
             $user = User::create([
@@ -146,14 +145,11 @@ class PenggunaController extends Controller
             }
 
             if ($request->hasFile('foto')) {
-                if (! empty($data->foto) && file_exists(public_path('assets/pengguna/'.$data->foto))) {
-                    unlink(public_path('assets/pengguna/'.$data->foto));
+                if (! empty($data->foto)) {
+                    $this->storage->delete($data->foto, 'pengguna');
                 }
 
-                $file = $request->file('foto');
-                $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-                $file->move($this->direktoriFoto(), $filename);
-                $db['foto'] = $filename;
+                $db['foto'] = $this->storage->upload($request->file('foto'), 'pengguna');
             }
 
             $data->update($db);
@@ -182,8 +178,8 @@ class PenggunaController extends Controller
 
         DB::beginTransaction();
         try {
-            if (! empty($data->foto) && file_exists(public_path('assets/pengguna/'.$data->foto))) {
-                unlink(public_path('assets/pengguna/'.$data->foto));
+            if (! empty($data->foto)) {
+                $this->storage->delete($data->foto, 'pengguna');
             }
 
             HakAkses::where('id_user', $data->id)->delete();
@@ -198,16 +194,5 @@ class PenggunaController extends Controller
 
             return response()->json(['status' => 'error', 'error' => $e->getMessage()], 500);
         }
-    }
-
-    private function direktoriFoto(): string
-    {
-        $direktori = public_path('assets/pengguna');
-
-        if (! is_dir($direktori)) {
-            mkdir($direktori, 0755, true);
-        }
-
-        return $direktori;
     }
 }

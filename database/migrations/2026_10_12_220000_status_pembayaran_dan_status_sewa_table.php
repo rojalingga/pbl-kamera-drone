@@ -28,15 +28,13 @@ return new class extends Migration
             $table->enum('status_sewa', self::SEWA)->nullable()->after('status_pembayaran');
         });
 
-        DB::statement("
-            UPDATE `sewa`
-            SET `status_pembayaran` = CASE WHEN `status` = 'confirmed' THEN 'Confirmed' ELSE 'Pending' END
-        ");
+        DB::table('sewa')->whereNotNull('status')->update([
+            'status_pembayaran' => DB::raw("CASE WHEN status = 'confirmed' THEN 'Confirmed' ELSE 'Pending' END"),
+        ]);
 
-        DB::statement("
-            UPDATE `sewa`
-            SET `status_sewa` = CASE WHEN `status_pembayaran` = 'Confirmed' THEN 'Periode Sewa' ELSE 'Pending' END
-        ");
+        DB::table('sewa')->whereNotNull('status_pembayaran')->update([
+            'status_sewa' => DB::raw("CASE WHEN status_pembayaran = 'Confirmed' THEN 'Periode Sewa' ELSE 'Pending' END"),
+        ]);
 
         Schema::table('sewa', function (Blueprint $table): void {
             $table->dropColumn('status');
@@ -49,10 +47,9 @@ return new class extends Migration
             $table->string('status', 50)->nullable()->after('id_users');
         });
 
-        DB::statement("
-            UPDATE `sewa`
-            SET `status` = CASE WHEN `status_pembayaran` = 'Confirmed' THEN 'confirmed' ELSE 'pending' END
-        ");
+        DB::table('sewa')->update([
+            'status' => DB::raw("CASE WHEN status_pembayaran = 'Confirmed' THEN 'confirmed' ELSE 'pending' END"),
+        ]);
 
         Schema::table('sewa', function (Blueprint $table): void {
             $table->dropColumn(['status_pembayaran', 'status_sewa']);

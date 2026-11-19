@@ -13,17 +13,20 @@ use App\Models\Sewa;
 use App\Models\SewaDetail;
 use App\Models\User;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Yajra\DataTables\Facades\DataTables;
 
 class PengembalianController extends Controller
 {
-    public function __construct(private RiwayatStokService $stok) {}
+    public function __construct(
+        private RiwayatStokService $stok,
+        private SupabaseStorageService $storage
+    ) {}
 
     public function index(Request $request)
     {
@@ -431,16 +434,13 @@ class PengembalianController extends Controller
             return '';
         }
 
-        $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-        $file->move(public_path('assets/pengembalian'), $filename);
-
-        return $filename;
+        return $this->storage->upload($file, 'pengembalian');
     }
 
     private function hapusFotoUnit(?string $filename): void
     {
-        if (! empty($filename) && file_exists(public_path('assets/pengembalian/'.$filename))) {
-            unlink(public_path('assets/pengembalian/'.$filename));
+        if (! empty($filename)) {
+            $this->storage->delete($filename, 'pengembalian');
         }
     }
 

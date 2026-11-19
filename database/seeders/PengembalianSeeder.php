@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\NomorDokumenService;
 use App\Services\RiwayatSaldoService;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -34,14 +35,13 @@ class PengembalianSeeder extends Seeder
             ['kategori' => 'Pembayaran Denda', 'jenis' => 'Pemasukan']
         );
 
-        $pengembalianDir = public_path('assets/pengembalian');
-        if (! File::isDirectory($pengembalianDir)) {
-            File::makeDirectory($pengembalianDir, 0755, true);
-        }
+        $storage = app(SupabaseStorageService::class);
+        $storage->emptyFolder('pengembalian');
+
         $dummyFoto = 'unit_pengembalian_sample.jpg';
         $dummySumber = public_path('assets/img/1 Kamera.jpg');
-        if (File::exists($dummySumber) && ! File::exists($pengembalianDir.'/'.$dummyFoto)) {
-            File::copy($dummySumber, $pengembalianDir.'/'.$dummyFoto);
+        if (File::exists($dummySumber)) {
+            $dummyFoto = $storage->upload($dummySumber, 'pengembalian', 'unit_pengembalian_sample.jpg');
         }
 
         $list = [

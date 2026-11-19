@@ -1123,7 +1123,7 @@ export default function PengembalianIndex({
                             {row.fotoLama && !row.fotoFile && (
                               <p className="mb-1 truncate text-[11px] text-gray-500 dark:text-gray-400">
                                 <a
-                                  href={`/assets/pengembalian/${row.fotoLama}`}
+                                  href={row.fotoLama.startsWith("http") ? row.fotoLama : `/assets/pengembalian/${row.fotoLama}`}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="text-brand-500 underline"

@@ -10,6 +10,7 @@ use App\Models\SewaDetail;
 use App\Services\NomorDokumenService;
 use App\Services\PembayaranService;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,7 +26,8 @@ class CustomerBookingController extends Controller
     public function __construct(
         private RiwayatStokService $stok,
         private PembayaranService $pembayaranService,
-        private NomorDokumenService $nomor
+        private NomorDokumenService $nomor,
+        private SupabaseStorageService $storage
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -79,9 +80,7 @@ class CustomerBookingController extends Controller
         // Upload foto jaminan jika ada
         $filenameJaminan = '';
         if ($request->hasFile('foto_jaminan')) {
-            $file = $request->file('foto_jaminan');
-            $filenameJaminan = Str::random(25).'.'.$file->getClientOriginalExtension();
-            $file->move(public_path('assets/jaminan'), $filenameJaminan);
+            $filenameJaminan = $this->storage->upload($request->file('foto_jaminan'), 'jaminan');
         }
 
         DB::beginTransaction();

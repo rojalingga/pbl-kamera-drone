@@ -37,12 +37,9 @@ return new class extends Migration
             $table->enum('status_pembayaran', self::BAYAR)->nullable()->after('total_denda');
         });
 
-        $kutip = chr(39);
-
-        DB::statement(
-            'UPDATE pengembalian SET status_pembayaran = CASE WHEN COALESCE(total_denda, 0) > 0 THEN '
-            .$kutip.'Belum Lunas'.$kutip.' ELSE '.$kutip.'Lunas'.$kutip.' END'
-        );
+        DB::table('pengembalian')->update([
+            'status_pembayaran' => DB::raw("CASE WHEN COALESCE(total_denda, 0) > 0 THEN 'Belum Lunas' ELSE 'Lunas' END"),
+        ]);
 
         Schema::table('pengembalian', function (Blueprint $table): void {
             $table->dropColumn('status');
@@ -63,9 +60,7 @@ return new class extends Migration
             $table->string('status', 50)->nullable()->after('total_denda');
         });
 
-        $kutip = chr(39);
-
-        DB::statement('UPDATE pengembalian SET status = '.$kutip.'Kembali'.$kutip);
+        DB::table('pengembalian')->update(['status' => 'Kembali']);
 
         Schema::table('pengembalian', function (Blueprint $table): void {
             $table->dropColumn('status_pembayaran');

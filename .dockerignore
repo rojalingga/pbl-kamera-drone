@@ -1,0 +1,16 @@
+.git/
+.env
+.env.*
+node_modules/
+vendor/
+tests/
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*.php
+.phpunit.cache/
+.vscode/
+.idea/
+AGENTS.md
+DB.md
+PROGRESS.md

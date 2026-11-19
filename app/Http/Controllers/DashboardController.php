@@ -156,7 +156,7 @@ class DashboardController extends Controller
                     'kategori' => $b->kategori?->kategori ?? '-',
                     'stok' => (int) $b->stok,
                     'harga_sewa' => (int) $b->harga_sewa,
-                    'foto' => $foto ? "/assets/barang/{$foto}" : '/assets/img/1 Kamera.jpg',
+                    'foto' => $foto ? (str_starts_with($foto, 'http') ? $foto : "/assets/barang/{$foto}") : '/assets/img/1 Kamera.jpg',
                 ];
             });
 

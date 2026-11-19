@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\NomorDokumenService;
 use App\Services\RiwayatSaldoService;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -33,14 +34,13 @@ class SewaSeeder extends Seeder
             ['kategori' => 'Sewa', 'jenis' => 'Pemasukan']
         );
 
-        $jaminanDir = public_path('assets/jaminan');
-        if (! File::isDirectory($jaminanDir)) {
-            File::makeDirectory($jaminanDir, 0755, true);
-        }
+        $storage = app(SupabaseStorageService::class);
+        $storage->emptyFolder('jaminan');
+
         $dummyJaminan = 'jaminan_ktp_sample.jpg';
         $dummySumber = public_path('assets/img/1 Drone.jpg');
-        if (File::exists($dummySumber) && ! File::exists($jaminanDir.'/'.$dummyJaminan)) {
-            File::copy($dummySumber, $jaminanDir.'/'.$dummyJaminan);
+        if (File::exists($dummySumber)) {
+            $dummyJaminan = $storage->upload($dummySumber, 'jaminan', 'jaminan_ktp_sample.jpg');
         }
 
         $list = [

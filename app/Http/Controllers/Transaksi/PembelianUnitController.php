@@ -14,17 +14,21 @@ use App\Models\Pengeluaran;
 use App\Models\Rekening;
 use App\Services\RiwayatSaldoService;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Yajra\DataTables\Facades\DataTables;
 
 class PembelianUnitController extends Controller
 {
-    public function __construct(private RiwayatStokService $stok, private RiwayatSaldoService $saldo) {}
+    public function __construct(
+        private RiwayatStokService $stok,
+        private RiwayatSaldoService $saldo,
+        private SupabaseStorageService $storage
+    ) {}
 
     public function index(Request $request)
     {
@@ -197,8 +201,8 @@ class PembelianUnitController extends Controller
                             $this->saldo->batalkanKeluar($idRekeningLama, $nominalLama, ['id_pengeluaran' => $pengeluaranLama->id]);
                         }
 
-                        if (! empty($pengeluaranLama->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaranLama->lampiran))) {
-                            unlink(public_path('assets/lampiran/'.$pengeluaranLama->lampiran));
+                        if (! empty($pengeluaranLama->lampiran)) {
+                            $this->storage->delete($pengeluaranLama->lampiran, 'lampiran');
                         }
 
                         $pengeluaranLama->delete();
@@ -247,8 +251,8 @@ class PembelianUnitController extends Controller
                     $db = $this->dataPengeluaran($pembelian->id, $request, $total);
 
                     if ($request->hasFile('lampiran')) {
-                        if (! empty($pengeluaran->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaran->lampiran))) {
-                            unlink(public_path('assets/lampiran/'.$pengeluaran->lampiran));
+                        if (! empty($pengeluaran->lampiran)) {
+                            $this->storage->delete($pengeluaran->lampiran, 'lampiran');
                         }
 
                         $db['lampiran'] = $this->simpanLampiran($request);
@@ -274,8 +278,8 @@ class PembelianUnitController extends Controller
                 // Jika status baru bukan disetujui (Pending / Ditolak), hapus pengeluaran jika ada
                 $pengeluaran = $pembelian->pengeluaran;
                 if ($pengeluaran) {
-                    if (! empty($pengeluaran->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaran->lampiran))) {
-                        unlink(public_path('assets/lampiran/'.$pengeluaran->lampiran));
+                    if (! empty($pengeluaran->lampiran)) {
+                        $this->storage->delete($pengeluaran->lampiran, 'lampiran');
                     }
                     $pengeluaran->delete();
                 }
@@ -321,8 +325,8 @@ class PembelianUnitController extends Controller
             $pengeluaran = $pembelian->pengeluaran;
 
             if ($pengeluaran) {
-                if (! empty($pengeluaran->lampiran) && file_exists(public_path('assets/lampiran/'.$pengeluaran->lampiran))) {
-                    unlink(public_path('assets/lampiran/'.$pengeluaran->lampiran));
+                if (! empty($pengeluaran->lampiran)) {
+                    $this->storage->delete($pengeluaran->lampiran, 'lampiran');
                 }
 
                 $idRekeningHapus = (int) ($pengeluaran->id_rekening ?? 0);
@@ -441,9 +445,11 @@ class PembelianUnitController extends Controller
     private function simpanLampiran(Request $request): string
     {
         $file = $request->file('lampiran');
-        $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-        $file->move(public_path('assets/lampiran'), $filename);
 
-        return $filename;
+        if (! $file || ! $file->isValid()) {
+            return '';
+        }
+
+        return $this->storage->upload($file, 'lampiran');
     }
 }

@@ -11,7 +11,9 @@ export interface ProductCardProps {
 export default function ProductCard({ item, className = '', isDark = false }: ProductCardProps) {
   // Determine photo
   const photoFilename = item.fotos?.[0]?.foto;
-  const photoUrl = photoFilename ? `/assets/barang/${photoFilename}` : null;
+  const photoUrl = photoFilename
+    ? (photoFilename.startsWith('http') ? photoFilename : `/assets/barang/${photoFilename}`)
+    : null;
 
   // Determine title, category, brand, and price
   const title = item.nama_barang || item.name || 'Peralatan SkyLens';

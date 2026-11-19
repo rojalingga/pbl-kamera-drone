@@ -9,17 +9,20 @@ use App\Models\FotoBarang;
 use App\Models\Kategori;
 use App\Models\Merk;
 use App\Services\RiwayatStokService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Yajra\DataTables\Facades\DataTables;
 
 class BarangController extends Controller
 {
-    public function __construct(private RiwayatStokService $stok) {}
+    public function __construct(
+        private RiwayatStokService $stok,
+        private SupabaseStorageService $storage
+    ) {}
 
     public function index(Request $request)
     {
@@ -212,8 +215,8 @@ class BarangController extends Controller
         DB::beginTransaction();
         try {
             foreach ($data->fotos as $foto) {
-                if (! empty($foto->foto) && file_exists(public_path('assets/barang/'.$foto->foto))) {
-                    unlink(public_path('assets/barang/'.$foto->foto));
+                if (! empty($foto->foto)) {
+                    $this->storage->delete($foto->foto, 'barang');
                 }
                 $foto->delete();
             }
@@ -270,20 +273,13 @@ class BarangController extends Controller
     private function simpanFoto(array $files): array
     {
         $filenames = [];
-        $direktori = public_path('assets/barang');
-
-        if (! is_dir($direktori)) {
-            mkdir($direktori, 0755, true);
-        }
 
         foreach ($files as $file) {
             if (! $file || ! $file->isValid()) {
                 continue;
             }
 
-            $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-            $file->move($direktori, $filename);
-            $filenames[] = $filename;
+            $filenames[] = $this->storage->upload($file, 'barang');
         }
 
         return $filenames;
@@ -313,9 +309,7 @@ class BarangController extends Controller
         $removedFotos = array_diff($oldFotos, $finalFotos);
 
         foreach ($removedFotos as $removedFoto) {
-            if (file_exists(public_path('assets/barang/'.$removedFoto))) {
-                unlink(public_path('assets/barang/'.$removedFoto));
-            }
+            $this->storage->delete($removedFoto, 'barang');
         }
 
         FotoBarang::where('id_barang', $barang->id)->delete();

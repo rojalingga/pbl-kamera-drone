@@ -258,7 +258,11 @@ export default function SewaIndex({
         setTglSewaInput(row.tgl_sewa ?? "");
         setTglAkhirInput(row.tgl_akhir_sewa ?? "");
         setCustomerInput(row.id_customer != null ? String(row.id_customer) : "");
-        setJaminanPreview(row.foto_jaminan ? `/assets/jaminan/${row.foto_jaminan}` : "");
+        setJaminanPreview(
+          row.foto_jaminan
+            ? (row.foto_jaminan.startsWith("http") ? row.foto_jaminan : `/assets/jaminan/${row.foto_jaminan}`)
+            : ""
+        );
         setItems(
           (row.details ?? []).map((d: any, idx: number) => ({
             key: idx + 1,

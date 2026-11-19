@@ -10,17 +10,20 @@ use App\Models\Pengeluaran;
 use App\Models\Perawatan;
 use App\Models\Rekening;
 use App\Services\RiwayatSaldoService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Yajra\DataTables\Facades\DataTables;
 
 class PengeluaranController extends Controller
 {
-    public function __construct(private RiwayatSaldoService $saldo) {}
+    public function __construct(
+        private RiwayatSaldoService $saldo,
+        private SupabaseStorageService $storage
+    ) {}
 
     public function index(Request $request)
     {
@@ -103,10 +106,7 @@ class PengeluaranController extends Controller
             $db = $request->only('tgl_pengeluaran', 'nominal', 'id_kategori_transaksi', 'id_rekening', 'keterangan');
 
             if ($request->hasFile('lampiran')) {
-                $file = $request->file('lampiran');
-                $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-                $file->move(public_path('assets/lampiran'), $filename);
-                $db['lampiran'] = $filename;
+                $db['lampiran'] = $this->storage->upload($request->file('lampiran'), 'lampiran');
             }
 
             $pengeluaran = Pengeluaran::create($db);
@@ -158,14 +158,11 @@ class PengeluaranController extends Controller
             $db = $request->only('tgl_pengeluaran', 'nominal', 'id_kategori_transaksi', 'id_rekening', 'keterangan');
 
             if ($request->hasFile('lampiran')) {
-                if (! empty($data->lampiran) && file_exists(public_path('assets/lampiran/'.$data->lampiran))) {
-                    unlink(public_path('assets/lampiran/'.$data->lampiran));
+                if (! empty($data->lampiran)) {
+                    $this->storage->delete($data->lampiran, 'lampiran');
                 }
 
-                $file = $request->file('lampiran');
-                $filename = Str::random(25).'.'.$file->getClientOriginalExtension();
-                $file->move(public_path('assets/lampiran'), $filename);
-                $db['lampiran'] = $filename;
+                $db['lampiran'] = $this->storage->upload($request->file('lampiran'), 'lampiran');
             }
 
             $idRekeningLama = (int) ($data->id_rekening ?? 0);
@@ -212,8 +209,8 @@ class PengeluaranController extends Controller
 
         DB::beginTransaction();
         try {
-            if (! empty($data->lampiran) && file_exists(public_path('assets/lampiran/'.$data->lampiran))) {
-                unlink(public_path('assets/lampiran/'.$data->lampiran));
+            if (! empty($data->lampiran)) {
+                $this->storage->delete($data->lampiran, 'lampiran');
             }
 
             $idRekeningHapus = (int) ($data->id_rekening ?? 0);

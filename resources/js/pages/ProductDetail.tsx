@@ -43,7 +43,9 @@ export default function ProductDetail({ barang, related = [] }: ProductDetailPro
   // Real photos from database
   const photos = useMemo(() => {
     if (barang?.fotos && barang.fotos.length > 0) {
-      return barang.fotos.map((f: any) => `/assets/barang/${f.foto}`);
+      return barang.fotos.map((f: any) =>
+        f.foto ? (f.foto.startsWith('http') ? f.foto : `/assets/barang/${f.foto}`) : '/assets/img/1 Kamera.jpg'
+      );
     }
     return ['/assets/img/1 Kamera.jpg'];
   }, [barang]);

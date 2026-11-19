@@ -137,7 +137,7 @@ export default function PenggunaIndex({ permissions, roles }: IndexProps) {
         setUsernameInput(item.username ?? "");
         setIdRoleInput(item.id_role ? String(item.id_role) : "");
         setStatusInput(item.status !== undefined && item.status !== null ? String(item.status) : "1");
-        setFotoPreview(item.foto ? `/assets/pengguna/${item.foto}` : "");
+        setFotoPreview(item.foto ? (item.foto.startsWith("http") ? item.foto : `/assets/pengguna/${item.foto}`) : "");
         setPrimaryId(id);
         setModalTitle("Form Edit Pengguna");
         setIsModalOpen(true);

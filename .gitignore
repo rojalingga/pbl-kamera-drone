@@ -38,3 +38,7 @@ node_modules/
 /AGENTS.md
 /DB.md
 /PROGRESS.md
+
+# Aset & dokumen lokal (jangan di-push ke GitHub)
+/public/assets
+/public/docs

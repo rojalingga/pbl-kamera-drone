@@ -623,7 +623,7 @@ export default function BarangIndex({
                         className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900"
                       >
                         <img
-                          src={`/assets/barang/${foto.foto}`}
+                          src={foto.foto.startsWith('http') ? foto.foto : `/assets/barang/${foto.foto}`}
                           alt="Foto tersimpan"
                           className="h-28 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
