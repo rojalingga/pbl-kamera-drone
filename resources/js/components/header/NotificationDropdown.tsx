@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import { cn } from "@/utils";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Modal } from "../ui/modal";
+import type { PageProps } from "@/types";
 
 interface NotifItem {
   id: string;
@@ -18,6 +19,9 @@ interface NotifItem {
 }
 
 export default function NotificationDropdown() {
+  const { auth } = usePage<PageProps>().props;
+  const isTeknisi = auth?.user?.role?.toLowerCase() === "teknisi";
+
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [notifList, setNotifList] = useState<NotifItem[]>([]);
@@ -72,7 +76,7 @@ export default function NotificationDropdown() {
   };
 
   const filteredNotifs = notifList.filter((item) => {
-    const matchKategori = filterKategori === "Semua" || item.kategori === filterKategori;
+    const matchKategori = isTeknisi || filterKategori === "Semua" || item.kategori === filterKategori;
     const matchSearch =
       item.judul.toLowerCase().includes(search.toLowerCase()) ||
       item.pesan.toLowerCase().includes(search.toLowerCase()) ||
@@ -211,7 +215,9 @@ export default function NotificationDropdown() {
               Semua Notifikasi
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Daftar pengembalian melewati batas waktu dan transaksi yang butuh persetujuan owner
+              {isTeknisi
+                ? "Daftar perawatan unit yang membutuhkan tindakan atau persetujuan"
+                : "Daftar pengembalian melewati batas waktu dan transaksi yang butuh persetujuan owner"}
             </p>
           </div>
         </div>
@@ -219,19 +225,21 @@ export default function NotificationDropdown() {
         {/* Toolbar Filter & Search */}
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <select
-              value={filterKategori}
-              onChange={(e) => {
-                setFilterKategori(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-            >
-              <option value="Semua">Semua Kategori</option>
-              <option value="Pengembalian">Pengembalian Telat</option>
-              <option value="Pembelian Unit">Pembelian Unit (Pending)</option>
-              <option value="Perawatan">Perawatan (Pending)</option>
-            </select>
+            {!isTeknisi && (
+              <select
+                value={filterKategori}
+                onChange={(e) => {
+                  setFilterKategori(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                <option value="Semua">Semua Kategori</option>
+                <option value="Pengembalian">Pengembalian Telat</option>
+                <option value="Pembelian Unit">Pembelian Unit (Pending)</option>
+                <option value="Perawatan">Perawatan (Pending)</option>
+              </select>
+            )}
 
             <select
               value={perPage}

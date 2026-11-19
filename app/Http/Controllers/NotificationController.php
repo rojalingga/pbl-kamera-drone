@@ -19,53 +19,63 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $roleName = $user?->role?->role;
+        $isTeknisi = strcasecmp((string) $roleName, 'Teknisi') === 0;
+
         $hariIni = Carbon::now()->startOfDay();
 
-        // 1. Pengembalian telat
-        $sewaTelats = Sewa::with('customer')
-            ->where('status_pembayaran', Sewa::BAYAR_CONFIRMED)
-            ->whereDoesntHave('pengembalians')
-            ->whereDate('tgl_akhir_sewa', '<', $hariIni)
-            ->orderBy('tgl_akhir_sewa', 'asc')
-            ->get();
+        // 1. Pengembalian telat (hanya untuk Admin & Owner)
+        $notifPengembalian = collect();
+        if (! $isTeknisi) {
+            $sewaTelats = Sewa::with('customer')
+                ->where('status_pembayaran', Sewa::BAYAR_CONFIRMED)
+                ->whereDoesntHave('pengembalians')
+                ->whereDate('tgl_akhir_sewa', '<', $hariIni)
+                ->orderBy('tgl_akhir_sewa', 'asc')
+                ->get();
 
-        $notifPengembalian = $sewaTelats->map(function ($sewa) use ($hariIni) {
-            $tglAkhir = Carbon::parse($sewa->tgl_akhir_sewa)->startOfDay();
-            $selisihHari = (int) $tglAkhir->diffInDays($hariIni);
+            $notifPengembalian = $sewaTelats->map(function ($sewa) use ($hariIni) {
+                $tglAkhir = Carbon::parse($sewa->tgl_akhir_sewa)->startOfDay();
+                $selisihHari = (int) $tglAkhir->diffInDays($hariIni);
 
-            return [
-                'id' => 'pengembalian-'.$sewa->id,
-                'kategori' => 'Pengembalian',
-                'judul' => 'Sewa Melewati Batas Waktu',
-                'pesan' => 'No. Sewa '.$sewa->no_sewa.' ('.($sewa->customer?->nama_lengkap ?? '-').') sudah lewat '.$selisihHari.' hari.',
-                'waktu' => $sewa->tgl_akhir_sewa ? Carbon::parse($sewa->tgl_akhir_sewa)->locale('id')->translatedFormat('j F Y') : '-',
-                'tipe' => 'danger',
-                'url' => route('pengembalian.index'),
-                'target_menu' => 'Pengembalian',
-            ];
-        });
+                return [
+                    'id' => 'pengembalian-'.$sewa->id,
+                    'kategori' => 'Pengembalian',
+                    'judul' => 'Sewa Melewati Batas Waktu',
+                    'pesan' => 'No. Sewa '.$sewa->no_sewa.' ('.($sewa->customer?->nama_lengkap ?? '-').') sudah lewat '.$selisihHari.' hari.',
+                    'waktu' => $sewa->tgl_akhir_sewa ? Carbon::parse($sewa->tgl_akhir_sewa)->locale('id')->translatedFormat('j F Y') : '-',
+                    'tipe' => 'danger',
+                    'url' => route('pengembalian.index'),
+                    'target_menu' => 'Pengembalian',
+                ];
+            });
+        }
 
-        // 2. Pembelian unit butuh persetujuan owner (is_owner_acc = Pending)
-        $pembelianPending = PembelianUnit::with('details.barang')
-            ->where('is_owner_acc', PembelianUnit::STATUS_PENDING)
-            ->orderByDesc('id')
-            ->get();
+        // 2. Pembelian unit butuh persetujuan owner (hanya untuk Admin & Owner)
+        $notifPembelian = collect();
+        if (! $isTeknisi) {
+            $pembelianPending = PembelianUnit::with('details.barang')
+                ->where('is_owner_acc', PembelianUnit::STATUS_PENDING)
+                ->orderByDesc('id')
+                ->get();
 
-        $notifPembelian = $pembelianPending->map(function ($pembelian) {
-            $totalBiaya = (float) $pembelian->details->sum(fn ($d) => (float) ($d->harga_beli ?? 0) * (int) ($d->jumlah ?? 0));
-            $jmlUnit = (int) $pembelian->details->sum('jumlah');
+            $notifPembelian = $pembelianPending->map(function ($pembelian) {
+                $totalBiaya = (float) $pembelian->details->sum(fn ($d) => (float) ($d->harga_beli ?? 0) * (int) ($d->jumlah ?? 0));
+                $jmlUnit = (int) $pembelian->details->sum('jumlah');
 
-            return [
-                'id' => 'pembelian-'.$pembelian->id,
-                'kategori' => 'Pembelian Unit',
-                'judul' => 'Butuh Persetujuan Owner',
-                'pesan' => 'Pembelian #'.$pembelian->id.' ('.$jmlUnit.' unit - Rp '.number_format($totalBiaya, 0, ',', '.').') menunggu persetujuan.',
-                'waktu' => $pembelian->tanggal ? Carbon::parse($pembelian->tanggal)->locale('id')->translatedFormat('j F Y') : '-',
-                'tipe' => 'warning',
-                'url' => route('pembelian-unit.index'),
-                'target_menu' => 'Pembelian Unit',
-            ];
-        });
+                return [
+                    'id' => 'pembelian-'.$pembelian->id,
+                    'kategori' => 'Pembelian Unit',
+                    'judul' => 'Butuh Persetujuan Owner',
+                    'pesan' => 'Pembelian #'.$pembelian->id.' ('.$jmlUnit.' unit - Rp '.number_format($totalBiaya, 0, ',', '.').') menunggu persetujuan.',
+                    'waktu' => $pembelian->tanggal ? Carbon::parse($pembelian->tanggal)->locale('id')->translatedFormat('j F Y') : '-',
+                    'tipe' => 'warning',
+                    'url' => route('pembelian-unit.index'),
+                    'target_menu' => 'Pembelian Unit',
+                ];
+            });
+        }
 
         // 3. Perawatan barang butuh persetujuan owner (is_owner_acc = Pending)
         $perawatanPending = Perawatan::with('details.barang')
@@ -89,10 +99,14 @@ class NotificationController extends Controller
             ];
         });
 
-        $semua = $notifPengembalian->concat($notifPembelian)->concat($notifPerawatan)->values();
+        $semua = $isTeknisi
+            ? $notifPerawatan->values()
+            : $notifPengembalian->concat($notifPembelian)->concat($notifPerawatan)->values();
 
         return response()->json([
             'status' => 'success',
+            'role' => $roleName,
+            'is_teknisi' => $isTeknisi,
             'total' => $semua->count(),
             'counts' => [
                 'pengembalian' => $notifPengembalian->count(),
